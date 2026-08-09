@@ -1,0 +1,116 @@
+/* ════════════════════════════════════════════════════════
+   全站动效关键帧（文档§四 动效清单）
+   命名约定：语义化 keyframes，弹性入场统一用回弹曲线
+   ════════════════════════════════════════════════════════ */
+
+/* 浮动漂浮 */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 轻弹跳（Loading 猫 / 按钮按下回弹）*/
+@keyframes cat-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.04); }
+}
+
+/* 闪烁星光 */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* 心跳 */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* 文字呼吸（Loading 加载文字）*/
+@keyframes text-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Loading 淡出 */
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 照片掉落入场（图库，弹性）*/
+@keyframes photo-drop-in {
+  0% { transform: scale(0.5) translateY(-30px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 图钉晃动 */
+@keyframes pin-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-4deg); }
+}
+
+/* 名字标签微弹跳 */
+@keyframes name-tag-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-1deg); }
+  50% { transform: translateX(-50%) translateY(-5px) rotate(1deg); }
+}
+
+/* 涂鸦浮动（不同节奏）*/
+@keyframes doodle-float-1 {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(4deg); }
+}
+@keyframes doodle-float-2 {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  50% { transform: translateY(-8px) rotate(-6deg) scale(1.06); }
+}
+
+/* Hero 中央色块呼吸 morph */
+@keyframes block-c-morph {
+  0%, 100% {
+    border-radius: 55% 45% 50% 50% / 55% 48% 52% 48%;
+    transform: translateX(-52%) scale(1);
+  }
+  50% {
+    border-radius: 48% 52% 55% 45% / 50% 52% 48% 52%;
+    transform: translateX(-52%) scale(1.015);
+  }
+}
+
+/* 收尾小猫挥手 */
+@keyframes wave-hand {
+  0%, 100% { transform: rotate(18deg); }
+  50% { transform: rotate(-12deg); }
+}
+
+/* 满额警告闪烁（图库 ≥13 张）*/
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Lightbox 弹入 */
+@keyframes lightbox-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Toast 弹入 */
+@keyframes toast-in {
+  0% { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* 通用渐显（IntersectionObserver 入场）*/
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 进度条流动光 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

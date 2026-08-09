@@ -1,0 +1,42 @@
+/* ════════════════════════════════════════════════════════
+   App 骨架占位样式（批次①临时用，批次②③ 替换）
+   ════════════════════════════════════════════════════════ */
+
+.app-main {
+  width: 100%;
+}
+
+.section-placeholder {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-4);
+  border-bottom: 2px dashed rgba(248, 180, 180, 0.25);
+}
+
+.placeholder-tag {
+  font-family: var(--font-en-round);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--soft-coral);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-soft);
+  letter-spacing: 0.04em;
+}
+
+.placeholder-hint {
+  font-family: var(--font-cn-round);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.7;
+}

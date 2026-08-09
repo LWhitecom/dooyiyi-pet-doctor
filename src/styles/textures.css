@@ -1,0 +1,94 @@
+/* ════════════════════════════════════════════════════════
+   🎨 背景纹理系统（文档 §3.5，纯 CSS 零图片）
+   - 纹理 A：星芒放射纹 .bg-star-rays
+   - 纹理 B：粉色格纹   .bg-plaid-grid
+   分配方案见文档 §3.5.4：
+     全站 body → 格纹 B（最淡）
+     Hero / Loading / 收尾 → 星芒 A 透出
+     收尾区 → 星芒 A 渐变到格纹 B
+   ════════════════════════════════════════════════════════ */
+
+/* ═══ 纹理 A：星芒放射纹（Star Ray Pattern）═══ */
+.bg-star-rays {
+  background-color: var(--cream-bg);
+  background-image:
+    /* Layer 1: 大号散射星芒（6 个方向，错开分布）*/
+    conic-gradient(from 250deg at 15% 20%, transparent 0deg, var(--star-ray-color) 3deg, transparent 6deg, transparent 360deg),
+    conic-gradient(from 120deg at 78% 12%, transparent 0deg, var(--star-ray-color) 2.5deg, transparent 5deg, transparent 360deg),
+    conic-gradient(from 40deg at 62% 75%, transparent 0deg, var(--star-ray-color) 3.5deg, transparent 7deg, transparent 360deg),
+    conic-gradient(from 200deg at 8% 68%, transparent 0deg, var(--star-ray-color) 2deg, transparent 4deg, transparent 360deg),
+    conic-gradient(from 310deg at 88% 55%, transparent 0deg, var(--star-ray-color) 3deg, transparent 6deg, transparent 360deg),
+    conic-gradient(from 70deg at 28% 88%, transparent 0deg, var(--star-ray-color) 2.5deg, transparent 5deg, transparent 360deg),
+    /* Layer 2: 中号星芒填补空隙 */
+    conic-gradient(from 180deg at 45% 35%, transparent 0deg, var(--star-dot-color) 4deg, transparent 8deg, transparent 360deg),
+    conic-gradient(from 290deg at 18% 45%, transparent 0deg, var(--star-dot-color) 3deg, transparent 6deg, transparent 360deg),
+    conic-gradient(from 85deg at 72% 42%, transparent 0deg, var(--star-dot-color) 3.5deg, transparent 7deg, transparent 360deg),
+    /* Layer 3: 小星点 / 十字星光（散布）*/
+    radial-gradient(circle 1.2px at 12% 15%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1px at 85% 28%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1.4px at 34% 72%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1px at 68% 82%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1.2px at 92% 68%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1px at 5% 92%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1.5px at 52% 8%, var(--star-dot-color), transparent),
+    radial-gradient(circle 1px at 40% 55%, var(--sparkle-color), transparent),
+    radial-gradient(circle 1.3px at 76% 62%, var(--sparkle-color), transparent),
+    radial-gradient(circle 1px at 22% 32%, var(--sparkle-color), transparent);
+}
+
+/* ═══ 纹理 B：粉色格纹（Pink Plaid Grid）═══ */
+.bg-plaid-grid {
+  background-color: var(--cream-bg);
+  background-image:
+    /* 横线（每 24px 一条，线宽 1px）*/
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 23px,
+      var(--grid-line-color) 23px,
+      var(--grid-line-color) 24px
+    ),
+    /* 竖线（每 24px 一条，线宽 1px）*/
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 23px,
+      var(--grid-line-color) 23px,
+      var(--grid-line-color) 24px
+    ),
+    /* 交叉点微晕（模拟手绘格子不均匀感，每隔一格一个）*/
+    radial-gradient(circle 3px at 24px 24px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 3px at 72px 72px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 3px at 120px 24px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 2.5px at 168px 96px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 3px at 216px 48px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 2.5px at 264px 120px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 3px at 48px 144px, var(--grid-line-accent), transparent),
+    radial-gradient(circle 2px at 144px 168px, var(--grid-line-accent), transparent);
+}
+
+/* ═══ 全站 body 底层：格纹最淡版（opacity 调淡）═══ */
+/* 用法：直接给 <body> 加 class="bg-grid-faint" */
+.bg-grid-faint {
+  background-color: var(--cream-bg);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px),
+    repeating-linear-gradient(90deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px);
+}
+
+/* ═══ 收尾区：星芒渐变到格纹（过渡氛围）═══ */
+/* 用法：给收尾区容器加 class="bg-fade-rays-to-grid" */
+.bg-fade-rays-to-grid {
+  background-color: var(--cream-bg);
+  /* 顶部星芒透出 → 底部过渡到格纹，用 linear-gradient 蒙版叠加 */
+  background-image:
+    /* 顶层：从透明到奶油的纵向蒙版，让星芒在上、格纹在下 */
+    linear-gradient(180deg, transparent 0%, var(--cream-bg) 70%),
+    /* 星芒层 */
+    conic-gradient(from 250deg at 50% 5%, transparent 0deg, var(--star-ray-color) 3deg, transparent 6deg, transparent 360deg),
+    conic-gradient(from 120deg at 20% 15%, transparent 0deg, var(--star-ray-color) 2.5deg, transparent 5deg, transparent 360deg),
+    conic-gradient(from 40deg at 80% 12%, transparent 0deg, var(--star-ray-color) 3deg, transparent 6deg, transparent 360deg),
+    /* 格纹层 */
+    repeating-linear-gradient(0deg, transparent 0 23px, var(--grid-line-color) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, var(--grid-line-color) 23px 24px);
+}

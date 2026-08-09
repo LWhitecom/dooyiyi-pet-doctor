@@ -1,0 +1,101 @@
+/* ════════════════════════════════════════════════════════
+   全局样式 / Reset / 移动端适配
+   ════════════════════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* §10.2 字体降级链：中文圆体 */
+  font-family: var(--font-cn-round);
+  color: var(--text-primary);
+
+  /* 全站底层纹理：格纹最淡版（§3.5.4 风格红线：禁纯色底）*/
+  background-color: var(--cream-bg);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px),
+    repeating-linear-gradient(90deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px);
+  background-attachment: fixed;
+
+  /* 移动端优先（文档§五）：375-430px 居中 */
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  /* 文字更柔和 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+#root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 防止 iOS 长按选中 / 弹出系统菜单（配合长按换图交互）*/
+img,
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 链接与按钮去默认样式 */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 图片默认行为 */
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* 卡片毛玻璃通用工具类（§3.5.4）*/
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-soft);
+}
+
+/* 可访问性：尊重减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 滚动条隐藏（移动端感）*/
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

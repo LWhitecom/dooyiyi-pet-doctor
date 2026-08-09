@@ -1,0 +1,76 @@
+/* ════════════════════════════════════════════════════════
+   🎨 宠物医生小站 · 设计变量（迁移自 风格验证页.html + 文档§1.1）
+   全站 CSS 自定义属性：色彩 / 字体 / 纹理 / 间距 / 阴影
+   ════════════════════════════════════════════════════════ */
+
+:root {
+  /* —— 主色调（温暖奶油系，文档§1.1）—— */
+  --cream-bg: #fff8e7;      /* 主背景 - 奶油黄 */
+  --cream-light: #fffdf5;   /* 卡片背景 */
+  --warm-pink: #ffe4e1;     /* 淡肉粉 */
+  --peach: #ffdab9;         /* 蜜桃色 */
+  --soft-coral: #f8b4b4;    /* 柔珊瑚 */
+
+  /* —— 辅助色（治愈点缀）—— */
+  --mint: #b5ead7;          /* 薄荷绿 - 植物/自然 */
+  --lavender: #e0bbe4;      /* 淡薰衣草 */
+  --sky-blue: #c3e5f9;      /* 天空蓝 */
+  --butter: #fffacd;        /* 奶油黄高亮 */
+
+  /* —— 文字色 —— */
+  --text-primary: #5a4a4a;  /* 深棕灰 - 主文字 */
+  --text-secondary: #8b7e7e;/* 中棕灰 - 副文字 */
+  --text-accent: #d4a5a5;   /* 玫瑰棕 - 强调 */
+
+  /* —— 装饰色 —— */
+  --star-gold: #ffd700;     /* 星星/闪光 */
+  --heart-pink: #ffb6c1;    /* 爱心 */
+  --bow-blue: #87ceeb;      /* 蝴蝶结蓝 */
+  --scribble-red: #d46a6a;  /* 深玫瑰棕 - 粗手绘线 */
+
+  /* —— §10.2 中文字体降级链（核心防塌成黑体）—— */
+  --font-cn-round: 'PingFang SC', 'ZCOOL KuaiLe', 'Quicksand',
+    'Microsoft YaHei Rounded', 'Hiragino Sans GB', sans-serif;
+  --font-en-round: 'Nunito', 'Quicksand', 'PingFang SC', sans-serif;
+  --font-hand: 'Caveat', 'Patrick Hand', 'PingFang SC', cursive;
+
+  /* —— §3.5 纹理 A：星芒放射纹（参考图2/图5 背景层）—— */
+  --star-ray-color: rgba(195, 229, 249, 0.35);  /* 淡蓝星芒 */
+  --star-dot-color: rgba(195, 229, 249, 0.25);  /* 星点 */
+  --sparkle-color: rgba(255, 215, 0, 0.2);      /* 金色微闪 */
+
+  /* —— §3.5 纹理 B：粉色格纹（参考图3/图4 背景层）—— */
+  --grid-line-color: rgba(255, 228, 225, 0.55); /* 粉色格线 */
+  --grid-line-accent: rgba(248, 180, 180, 0.2); /* 交叉点微晕 */
+
+  /* —— 间距（8 倍数体系，圆萌留白要足）—— */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* —— 圆角（风格红线：拒绝直角，全部 ≥16px）—— */
+  --r-sm: 16px;
+  --r-md: 24px;
+  --r-lg: 32px;
+  --r-pill: 999px;
+
+  /* —— 阴影（柔和不硬）—— */
+  --shadow-soft: 0 6px 18px rgba(90, 74, 74, 0.07);
+  --shadow-card: 0 8px 24px rgba(90, 74, 74, 0.1);
+  --shadow-glow: 0 0 60px rgba(255, 228, 225, 0.15);
+
+  /* —— 卡片毛玻璃（§3.5.4）—— */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-blur: blur(4px);
+  --glass-border: 2px solid rgba(255, 255, 255, 0.9);
+
+  /* —— 动效时长 —— */
+  --t-fast: 0.2s ease;
+  --t-mid: 0.3s ease;
+  --t-slow: 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  --t-bounce: 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

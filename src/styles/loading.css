@@ -1,0 +1,80 @@
+/* ════════════════════════════════════════════════════════
+   Loading 加载页样式（文档功能二）
+   ════════════════════════════════════════════════════════ */
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  background-color: var(--cream-bg);
+  /* 星芒纹理 A 透出 */
+}
+
+.loading-screen.fading {
+  animation: fade-out 0.6s ease forwards;
+}
+
+/* —— 两只猫占位（纯 CSS 画，抠图轮替换为真实素材）—— */
+.loading-cats {
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--sp-2);
+}
+
+.loading-illustration {
+  width: min(64vw, 240px);
+  max-height: 230px;
+  object-fit: contain;
+  animation: cat-bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 10px rgba(90, 74, 74, 0.12));
+}
+
+/* —— 加载文字 —— */
+.loading-text {
+  font-family: var(--font-hand);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-accent);
+  animation: text-pulse 1.6s ease-in-out infinite;
+  text-shadow: 0 1px 3px rgba(90, 74, 74, 0.08);
+  letter-spacing: 0.02em;
+  min-height: 1.5em;
+  text-align: center;
+}
+
+/* —— 进度条 —— */
+.loading-progress-wrap {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.loading-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(248, 180, 180, 0.2);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(90, 74, 74, 0.08);
+}
+
+.loading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--warm-pink), var(--soft-coral));
+  border-radius: var(--r-pill);
+  transition: width 0.2s ease;
+}
+
+.loading-percent {
+  font-family: var(--font-en-round);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
