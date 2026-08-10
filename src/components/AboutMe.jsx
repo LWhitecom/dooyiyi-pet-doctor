@@ -5,6 +5,7 @@ import catA from '../assets/images/cutout/单个抠图元素2.png'
 import catDecor from '../assets/images/cutout/单个抠图元素5.png'
 import catDecorTwo from '../assets/images/cutout/单个抠图元素8.png'
 import '../styles/about.css'
+import { resolvePhotoSrc } from '../utils/wallAssets.js'
 
 const STORAGE_KEY = 'pet-doctor-about-photo'
 
@@ -59,7 +60,7 @@ function AboutMe({ wallPhotos }) {
   useEffect(() => {
     carouselSlides.slice(carouselSlide + 1, carouselSlide + 3).flat().forEach((item) => {
       const preload = new Image()
-      preload.src = item.src
+      preload.src = resolvePhotoSrc(item)
     })
   }, [carouselSlide, carouselSlides])
 
@@ -159,7 +160,7 @@ function AboutMe({ wallPhotos }) {
               onTransitionEnd={handleCarouselTransitionEnd}
             >
               {carouselSlides.map((group, groupIndex) => <div className="about-carousel-slide" key={`${groupIndex}-${group[0]?.id}`}>
-                {group.map((item, index) => <img key={`${item.id}-${index}`} src={item.src} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} />)}
+                {group.map((item, index) => <img key={`${item.id}-${index}`} src={resolvePhotoSrc(item)} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} />)}
               </div>)}
             </div>
           </div> : <span>照片墙暂时没有照片</span>}
