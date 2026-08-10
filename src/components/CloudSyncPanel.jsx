@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import '../styles/cloud-sync.css'
 
 function CloudSyncPanel({ user, status, onSignIn, onSignUp, onSignOut }) {
   const [open, setOpen] = useState(false)
