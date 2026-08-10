@@ -131,7 +131,7 @@ function AboutMe({ wallPhotos }) {
           aria-label="长按 500 毫秒更换照片"
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click() }}
         >
-          <img src={photo} alt="Leila 的个人照片" />
+          <img src={photo} alt="Leila 的个人照片" loading="lazy" decoding="async" />
           <span className="about-dot" />
           <svg className="about-photo-line" viewBox="0 0 32 24" fill="none"><path d="M2 20Q8 6 16 12Q24 18 30 4" /></svg>
           <p>Hi~ I&apos;m your<br />pet doctor 🐾</p>
@@ -160,7 +160,7 @@ function AboutMe({ wallPhotos }) {
               onTransitionEnd={handleCarouselTransitionEnd}
             >
               {carouselSlides.map((group, groupIndex) => <div className="about-carousel-slide" key={`${groupIndex}-${group[0]?.id}`}>
-                {group.map((item, index) => <img key={`${item.id}-${index}`} src={resolvePhotoSrc(item)} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} />)}
+                {group.map((item, index) => <img key={`${item.id}-${index}`} src={resolvePhotoSrc(item)} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} loading="lazy" decoding="async" />)}
               </div>)}
             </div>
           </div> : <span>照片墙暂时没有照片</span>}

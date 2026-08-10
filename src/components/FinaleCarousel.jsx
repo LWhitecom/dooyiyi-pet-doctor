@@ -57,7 +57,7 @@ function FinaleCarousel() {
     <input ref={replaceInputRef} className="carousel-upload-input" type="file" accept="image/*" onChange={replaceCurrentCard} />
     <div className="carousel" style={{ '--swipe-offset': `${dragOffset}px` }} onMouseEnter={() => setPaused(true)} onMouseLeave={() => { setDragOffset(0); setPaused(false) }} onTouchStart={(event) => { setPaused(true); setStart(event.touches[0].clientX) }} onTouchMove={(event) => setDragOffset(event.touches[0].clientX - start)} onTouchEnd={(event) => { const distance = start - event.changedTouches[0].clientX; if (Math.abs(distance) > 50) move(distance > 0 ? 1 : -1); else setDragOffset(0); setPaused(false) }} onTouchCancel={() => { setDragOffset(0); setPaused(false) }}>
       {cards.map((src, index) => <button key={`${index}-${src.slice(-24)}`} className={`carousel-card ${cardPosition(index)}`} onClick={() => setActive(index)} aria-label={`查看轮播图片 ${index + 1}`}>
-        <img src={src} alt={`轮播图片 ${index + 1}`} />
+        <img src={src} alt={`轮播图片 ${index + 1}`} loading={cardPosition(index) === 'active' ? 'eager' : 'lazy'} decoding="async" />
       </button>)}
     </div>
     <div className="carousel-nav"><button type="button" onClick={() => move(-1)} aria-label="上一张">←</button><span>{active + 1} / {cards.length}</span><button type="button" onClick={() => move(1)} aria-label="下一张">→</button></div>

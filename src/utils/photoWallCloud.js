@@ -55,6 +55,15 @@ export async function saveCloudWall(userId, { photos, stickers }) {
   if (error) throw error
 }
 
+export function subscribeToCloudWall(userId, onChange) {
+  if (!supabase) return () => {}
+  const channel = supabase
+    .channel(`photo-wall:${userId}`)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'photo_wall_states', filter: `user_id=eq.${userId}` }, onChange)
+    .subscribe()
+  return () => { supabase.removeChannel(channel) }
+}
+
 async function compressImage(file) {
   const image = await createImageBitmap(file)
   const maxSide = 1600

@@ -7,7 +7,7 @@ import FinaleCarousel from './components/FinaleCarousel.jsx'
 import PawProgress from './components/PawProgress.jsx'
 import { loadPhotoWall, savePhotoWall } from './utils/photoWallStorage.js'
 import { createDefaultWallPhotos } from './utils/wallAssets.js'
-import { getCurrentUser, loadCloudWall, migrateLocalWall, saveCloudWall, signInWithPassword, signOut, signUpWithPassword, uploadCloudPhoto } from './utils/photoWallCloud.js'
+import { getCurrentUser, loadCloudWall, migrateLocalWall, saveCloudWall, signInWithPassword, signOut, signUpWithPassword, subscribeToCloudWall, uploadCloudPhoto } from './utils/photoWallCloud.js'
 
 // ════════════════════════════════════════════════════════
 //  App 主组件（批次①骨架版）
@@ -25,6 +25,7 @@ function App() {
   const [localWallReady, setLocalWallReady] = useState(false)
   const wallStorageReady = useRef(false)
   const cloudStorageReady = useRef(false)
+  const skipCloudSave = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -77,16 +78,33 @@ function App() {
   }, [syncUser, localWallReady])
 
   useEffect(() => {
+    if (!syncUser || !cloudStorageReady.current) return undefined
+    return subscribeToCloudWall(syncUser.id, () => {
+      loadCloudWall(syncUser.id).then((cloudWall) => {
+        if (!cloudWall) return
+        skipCloudSave.current = true
+        setWallPhotos(cloudWall.photos)
+        setWallStickers(cloudWall.stickers)
+        setSyncStatus('synced')
+      }).catch(() => setSyncStatus('error'))
+    })
+  }, [syncUser, syncStatus])
+
+  useEffect(() => {
     if (!wallStorageReady.current) return
     savePhotoWall({ photos: wallPhotos, stickers: wallStickers }).catch(() => {})
   }, [wallPhotos, wallStickers])
 
   useEffect(() => {
     if (!syncUser || !cloudStorageReady.current) return
+    if (skipCloudSave.current) {
+      skipCloudSave.current = false
+      return
+    }
     const timer = setTimeout(() => {
       setSyncStatus('syncing')
       saveCloudWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'))
-    }, 450)
+    }, 180)
     return () => clearTimeout(timer)
   }, [syncUser, wallPhotos, wallStickers])
 
