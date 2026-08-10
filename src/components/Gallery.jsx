@@ -139,7 +139,7 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUp
     <div className={`gallery-wall ${drag ? 'is-dragging' : ''}`} ref={wallRef}>
       {photos.map((photo, index) => {
         const isDragging = drag?.id === photo.id
-        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" /><img src={resolvePhotoSrc(photo)} alt={`照片 ${index + 1}`} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.alt = '图片加载失败' }} /><em>2026 · memory</em></button>
+        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" /><img src={resolvePhotoSrc(photo)} alt={`照片 ${index + 1}`} decoding="async" onError={(event) => { event.currentTarget.alt = '图片加载失败' }} /><em>2026 · memory</em></button>
       })}
       {stickers.map((sticker) => {
         const isDragging = drag?.id === sticker.id

@@ -20,7 +20,8 @@ export async function signInWithPassword(email, password) {
 }
 
 export async function signUpWithPassword(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password })
+  const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo } })
   if (error) throw error
   return data
 }
