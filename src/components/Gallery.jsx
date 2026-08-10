@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/gallery.css'
+import CloudSyncPanel from './CloudSyncPanel.jsx'
+import { builtInStickers, resolvePhotoSrc, resolveStickerSrc } from '../utils/wallAssets.js'
 
 const POSITION_STORAGE_KEY = 'pet-doctor-wall-positions'
 const DRAG_THRESHOLD = 10
 const WALL_PADDING = 4
-const builtInStickers = Object.entries(import.meta.glob('../assets/stickers/*.{png,webp,svg}', { eager: true, import: 'default', query: '?url' }))
-  .map(([path, src]) => ({ src, name: path.split('/').pop().replace(/\.[^.]+$/, '') }))
-  .filter((sticker) => sticker.name.startsWith('贴纸'))
-  .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN', { numeric: true }))
-
-function Gallery({ photos, onPhotosChange, stickers, onStickersChange }) {
+function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUpload, syncUser, syncStatus, onSignIn, onSignUp, onSignOut }) {
   const [active, setActive] = useState(null)
   const [drag, setDrag] = useState(null)
   const [trashActive, setTrashActive] = useState(false)
@@ -34,13 +31,11 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange }) {
     if (!file) return
     if (full) return window.alert('照片墙已满，请先删除一张照片~')
     if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) return window.alert('请选择 5MB 内的图片')
-    const reader = new FileReader()
-    reader.onload = () => onPhotosChange((items) => [...items, { id: crypto.randomUUID(), src: reader.result, x: 8 + Math.random() * 62, y: 8 + Math.random() * 65, r: -6 + Math.random() * 12 }])
-    reader.readAsDataURL(file)
+    onPhotoUpload(file).catch((error) => window.alert(error.message || '上传失败，请稍后重试'))
   }
 
   const addSticker = (sticker) => {
-    onStickersChange((items) => [...items, { id: crypto.randomUUID(), src: sticker.src, name: sticker.name, x: 44 + Math.random() * 14, y: 42 + Math.random() * 15, r: -10 + Math.random() * 20 }])
+    onStickersChange((items) => [...items, { id: crypto.randomUUID(), assetId: sticker.assetId, name: sticker.name, x: 44 + Math.random() * 14, y: 42 + Math.random() * 15, r: -10 + Math.random() * 20 }])
     setPickerOpen(false)
   }
 
@@ -133,7 +128,7 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange }) {
   return <section id="gallery" className="gallery-section bg-star-rays">
     <header className="gallery-head">
       <div><p>memories on my wall</p><h2>My Photo Wall</h2></div>
-      <div className="gallery-actions"><button type="button" className="sticker-button" onClick={() => setPickerOpen((open) => !open)}>✦ 贴纸</button><button type="button" onClick={() => full ? window.alert('已满 15 张，请先删除一张照片~') : input.current.click()}>＋ 添加</button></div>
+      <div className="gallery-actions"><CloudSyncPanel user={syncUser} status={syncStatus} onSignIn={onSignIn} onSignUp={onSignUp} onSignOut={onSignOut} /><button type="button" className="sticker-button" onClick={() => setPickerOpen((open) => !open)}>✦ 贴纸</button><button type="button" onClick={() => full ? window.alert('已满 15 张，请先删除一张照片~') : input.current.click()}>＋ 添加</button></div>
       <input ref={input} type="file" accept="image/*" onChange={addPhoto} />
     </header>
     <p className={full ? 'gallery-count full' : 'gallery-count'}>{photos.length}/15</p>
@@ -144,15 +139,15 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange }) {
     <div className={`gallery-wall ${drag ? 'is-dragging' : ''}`} ref={wallRef}>
       {photos.map((photo, index) => {
         const isDragging = drag?.id === photo.id
-        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" /><img src={photo.src} alt={`照片 ${index + 1}`} /><em>2026 · memory</em></button>
+        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" /><img src={resolvePhotoSrc(photo)} alt={`照片 ${index + 1}`} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.alt = '图片加载失败' }} /><em>2026 · memory</em></button>
       })}
       {stickers.map((sticker) => {
         const isDragging = drag?.id === sticker.id
-        return <button className={`wall-sticker ${isDragging ? 'dragging' : ''}`} key={sticker.id} onPointerDown={(event) => startPointer(event, sticker, 'sticker')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} aria-label={`贴纸 ${sticker.name || ''}`} style={{ left: `${sticker.x}%`, top: `${sticker.y}%`, '--rotation': `${sticker.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><img src={sticker.src} alt="" /></button>
+        return <button className={`wall-sticker ${isDragging ? 'dragging' : ''}`} key={sticker.id} onPointerDown={(event) => startPointer(event, sticker, 'sticker')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} aria-label={`贴纸 ${sticker.name || ''}`} style={{ left: `${sticker.x}%`, top: `${sticker.y}%`, '--rotation': `${sticker.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><img src={resolveStickerSrc(sticker)} alt="" loading="lazy" decoding="async" /></button>
       })}
     </div>
     {drag?.kind === 'sticker' && <div ref={trashRef} className={`sticker-trash ${trashActive ? 'is-active' : ''}`} role="status" aria-label="将贴纸拖到这里删除"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8m-6 0V2h4v2m-9 3h14m-12 0 1 13h8l1-13M10 10v7m4-7v7" /></svg><span>拖到这里删除</span></div>}
-    {active && <div className="lightbox" onClick={() => setActive(null)}><button className="close" onClick={() => setActive(null)}>×</button><span>{current + 1}/{photos.length}</span><img src={photos[current].src} alt="大图预览" onClick={(event) => event.stopPropagation()} /><div><button disabled={current === 0} onClick={(event) => { event.stopPropagation(); setActive(photos[current - 1].id) }}>←</button><button className="delete" onClick={(event) => { event.stopPropagation(); remove() }}>删除</button><button disabled={current === photos.length - 1} onClick={(event) => { event.stopPropagation(); setActive(photos[current + 1].id) }}>→</button></div></div>}
+    {active && <div className="lightbox" onClick={() => setActive(null)}><button className="close" onClick={() => setActive(null)}>×</button><span>{current + 1}/{photos.length}</span><img src={resolvePhotoSrc(photos[current])} alt="大图预览" onClick={(event) => event.stopPropagation()} /><div><button disabled={current === 0} onClick={(event) => { event.stopPropagation(); setActive(photos[current - 1].id) }}>←</button><button className="delete" onClick={(event) => { event.stopPropagation(); remove() }}>删除</button><button disabled={current === photos.length - 1} onClick={(event) => { event.stopPropagation(); setActive(photos[current + 1].id) }}>→</button></div></div>}
   </section>
 }
 
