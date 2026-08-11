@@ -58,7 +58,7 @@ function AboutMe({ wallPhotos }) {
   }, [carouselGroups.length, carouselPaused, pageVisible, carouselMoving, carouselSlide])
 
   useEffect(() => {
-    carouselSlides.slice(carouselSlide + 1, carouselSlide + 3).flat().forEach((item) => {
+    carouselSlides.slice(carouselSlide, carouselSlide + 3).flat().forEach((item) => {
       const preload = new Image()
       preload.src = resolvePhotoSrc(item)
     })
@@ -160,7 +160,7 @@ function AboutMe({ wallPhotos }) {
               onTransitionEnd={handleCarouselTransitionEnd}
             >
               {carouselSlides.map((group, groupIndex) => <div className="about-carousel-slide" key={`${groupIndex}-${group[0]?.id}`}>
-                {group.map((item, index) => <img key={`${item.id}-${index}`} src={resolvePhotoSrc(item)} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} loading="lazy" decoding="async" />)}
+                {group.map((item, index) => <img key={`${item.id}-${index}`} src={resolvePhotoSrc(item)} alt={`照片墙照片 ${groupIndex * 2 + index + 1}`} loading={groupIndex <= 1 ? 'eager' : 'lazy'} fetchPriority={groupIndex === 0 ? 'high' : 'low'} decoding="async" />)}
               </div>)}
             </div>
           </div> : <span>照片墙暂时没有照片</span>}

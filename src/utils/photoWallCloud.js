@@ -2,6 +2,9 @@ import { supabase } from './supabaseClient.js'
 import { createDefaultWallPhotos, resolvePhotoSrc } from './wallAssets.js'
 
 const BUCKET = 'wall-media'
+const SIGNED_URL_TTL = 60 * 60
+const SIGNED_URL_CACHE_LIFETIME = 55 * 60 * 1000
+const signedUrlCache = new Map()
 
 const withoutRuntimeSrc = (item) => {
   const { src, ...stored } = item
@@ -19,11 +22,33 @@ export async function signInWithPassword(email, password) {
   if (error) throw error
 }
 
-export async function signUpWithPassword(email, password) {
+export async function signUpWithEmail(email) {
   const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo } })
+  const temporaryPassword = `DooYiYi-${Date.now()}-${Math.random().toString(36).slice(2)}Aa!`
+  const { data, error } = await supabase.auth.signUp({ email, password: temporaryPassword, options: { emailRedirectTo } })
   if (error) throw error
   return data
+}
+
+export async function verifySignupCode(email, token, password) {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+  if (error) throw error
+  const { error: passwordError } = await supabase.auth.updateUser({ password })
+  if (passwordError) throw passwordError
+  return data
+}
+
+export async function sendResetCode(email) {
+  const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: emailRedirectTo })
+  if (error) throw error
+}
+
+export async function resetPasswordWithCode(email, token, password) {
+  const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
+  if (verifyError) throw verifyError
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
 }
 
 export async function signOut() {
@@ -32,17 +57,37 @@ export async function signOut() {
 }
 
 async function signedPhoto(photo) {
-  if (!photo.storagePath) return photo
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(photo.storagePath, 60 * 60)
-  if (error) throw error
-  return { ...photo, src: data.signedUrl }
+  const [signed] = await signedPhotos([photo])
+  return signed
+}
+
+async function signedPhotos(photos) {
+  const now = Date.now()
+  const pathsToSign = photos
+    .filter((photo) => photo.storagePath && (!signedUrlCache.has(photo.storagePath) || signedUrlCache.get(photo.storagePath).expiresAt <= now))
+    .map((photo) => photo.storagePath)
+
+  if (pathsToSign.length) {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(pathsToSign, SIGNED_URL_TTL)
+    if (error) throw error
+    data.forEach((item) => {
+      if (item.error) throw item.error
+      signedUrlCache.set(item.path, { src: item.signedUrl, expiresAt: now + SIGNED_URL_CACHE_LIFETIME })
+    })
+  }
+
+  return photos.map((photo) => {
+    if (!photo.storagePath) return photo
+    const cached = signedUrlCache.get(photo.storagePath)
+    return cached ? { ...photo, src: cached.src } : photo
+  })
 }
 
 export async function loadCloudWall(userId) {
   const { data, error } = await supabase.from('photo_wall_states').select('photos, stickers').eq('user_id', userId).maybeSingle()
   if (error) throw error
   if (!data) return null
-  return { photos: await Promise.all((data.photos || []).map(signedPhoto)), stickers: data.stickers || [] }
+  return { photos: await signedPhotos(data.photos || []), stickers: data.stickers || [] }
 }
 
 export async function saveCloudWall(userId, { photos, stickers }) {

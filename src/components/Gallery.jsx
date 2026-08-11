@@ -6,7 +6,7 @@ import { builtInStickers, resolvePhotoSrc, resolveStickerSrc } from '../utils/wa
 const POSITION_STORAGE_KEY = 'pet-doctor-wall-positions'
 const DRAG_THRESHOLD = 10
 const WALL_PADDING = 4
-function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUpload, syncUser, syncStatus, onSignIn, onSignUp, onSignOut }) {
+function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUpload, syncUser, syncStatus, onSignOut }) {
   const [active, setActive] = useState(null)
   const [drag, setDrag] = useState(null)
   const [trashActive, setTrashActive] = useState(false)
@@ -128,7 +128,7 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUp
   return <section id="gallery" className="gallery-section bg-star-rays">
     <header className="gallery-head">
       <div><p>memories on my wall</p><h2>My Photo Wall</h2></div>
-      <div className="gallery-actions"><CloudSyncPanel user={syncUser} status={syncStatus} onSignIn={onSignIn} onSignUp={onSignUp} onSignOut={onSignOut} /><button type="button" className="sticker-button" onClick={() => setPickerOpen((open) => !open)}>✦ 贴纸</button><button type="button" onClick={() => full ? window.alert('已满 15 张，请先删除一张照片~') : input.current.click()}>＋ 添加</button></div>
+      <div className="gallery-actions"><CloudSyncPanel user={syncUser} status={syncStatus} onSignOut={onSignOut} /><button type="button" className="sticker-button" onClick={() => setPickerOpen((open) => !open)}>✦ 贴纸</button><button type="button" onClick={() => full ? window.alert('已满 15 张，请先删除一张照片~') : input.current.click()}>＋ 添加</button></div>
       <input ref={input} type="file" accept="image/*" onChange={addPhoto} />
     </header>
     <p className={full ? 'gallery-count full' : 'gallery-count'}>{photos.length}/15</p>

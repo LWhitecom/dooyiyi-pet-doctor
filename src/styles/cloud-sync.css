@@ -1,3 +1,1 @@
-.cloud-sync-card input {
-  display: block !important;
-}
+.cloud-sync{display:flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--warm-pink);border-radius:999px;background:rgba(255,255,255,.88);color:var(--text-accent);font:.62rem var(--font-cn-round)}.cloud-sync button{padding:0;border:0;background:transparent;color:inherit;font:inherit}
