@@ -10,6 +10,35 @@ import { loadPhotoWall, savePhotoWall } from './utils/photoWallStorage.js'
 import { createDefaultWallPhotos } from './utils/wallAssets.js'
 import { getCurrentUser, loadCloudWall, migrateLocalWall, resetPasswordWithCode, saveCloudWall, sendResetCode, signInWithPassword, signOut, signUpWithEmail, subscribeToCloudWall, uploadCloudPhoto, verifySignupCode } from './utils/photoWallCloud.js'
 
+const AUTH_ACTIVITY_KEY = 'dooyiyi-auth-last-active'
+const AUTH_INACTIVITY_MS = 3 * 24 * 60 * 60 * 1000
+
+const getLastAuthActivity = () => {
+  try {
+    const value = Number(window.localStorage.getItem(AUTH_ACTIVITY_KEY))
+    return Number.isFinite(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+const recordAuthActivity = () => {
+  try {
+    window.localStorage.setItem(AUTH_ACTIVITY_KEY, String(Date.now()))
+  } catch {}
+}
+
+const clearAuthActivity = () => {
+  try {
+    window.localStorage.removeItem(AUTH_ACTIVITY_KEY)
+  } catch {}
+}
+
+const hasAuthSessionExpired = () => {
+  const lastActivity = getLastAuthActivity()
+  return lastActivity !== null && Date.now() - lastActivity >= AUTH_INACTIVITY_MS
+}
+
 // ════════════════════════════════════════════════════════
 //  App 主组件（批次①骨架版）
 //  - Loading 加载页（先显示，进度满后淡出）
@@ -50,8 +79,15 @@ function App() {
 
   useEffect(() => {
     let cancelled = false
-    getCurrentUser().then((user) => {
-      if (!cancelled) setSyncUser(user)
+    getCurrentUser().then(async (user) => {
+      if (cancelled) return
+      if (user && hasAuthSessionExpired()) {
+        await signOut()
+        clearAuthActivity()
+        return
+      }
+      if (user) recordAuthActivity()
+      setSyncUser(user)
     }).catch(() => {}).finally(() => {
       if (!cancelled) setAuthReady(true)
     })
@@ -98,6 +134,38 @@ function App() {
       }).catch(() => setSyncStatus('error'))
     })
   }, [syncUser, cloudWallReady])
+
+  useEffect(() => {
+    if (!syncUser) return undefined
+    const keepSessionAlive = () => {
+      if (hasAuthSessionExpired()) {
+        handleSignOut().catch(() => {})
+        return
+      }
+      recordAuthActivity()
+    }
+    const handleVisibilityChange = () => {
+      if (!document.hidden) keepSessionAlive()
+    }
+    const expiryTimer = window.setInterval(() => {
+      if (hasAuthSessionExpired()) handleSignOut().catch(() => {})
+    }, 60 * 1000)
+    window.addEventListener('focus', keepSessionAlive)
+    window.addEventListener('pageshow', keepSessionAlive)
+    window.addEventListener('click', keepSessionAlive)
+    window.addEventListener('keydown', keepSessionAlive)
+    window.addEventListener('touchstart', keepSessionAlive, { passive: true })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearInterval(expiryTimer)
+      window.removeEventListener('focus', keepSessionAlive)
+      window.removeEventListener('pageshow', keepSessionAlive)
+      window.removeEventListener('click', keepSessionAlive)
+      window.removeEventListener('keydown', keepSessionAlive)
+      window.removeEventListener('touchstart', keepSessionAlive)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [syncUser])
 
   useEffect(() => {
     if (!syncUser || !cloudWallReady) return undefined
@@ -154,6 +222,7 @@ function App() {
 
   const handleSignIn = async (email, password) => {
     await signInWithPassword(email, password)
+    recordAuthActivity()
     setSyncUser(await getCurrentUser())
   }
 
@@ -163,16 +232,19 @@ function App() {
 
   const handleVerifySignup = async (email, code, password) => {
     await verifySignupCode(email, code, password)
+    recordAuthActivity()
     setSyncUser(await getCurrentUser())
   }
 
   const handleResetPassword = async (email, code, password) => {
     await resetPasswordWithCode(email, code, password)
+    recordAuthActivity()
     setSyncUser(await getCurrentUser())
   }
 
   const handleSignOut = async () => {
     await signOut()
+    clearAuthActivity()
     cloudStorageReady.current = false
     setCloudWallReady(false)
     setSyncUser(null)
