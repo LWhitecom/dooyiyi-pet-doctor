@@ -8,7 +8,10 @@ import catA from '../assets/images/cutout/单个抠图元素3.png'
 import catB from '../assets/images/cutout/单个抠图元素1.png'
 import '../styles/finale.css'
 
-const defaultCards = [slide1, slide2, slide3, slide4, slide5]
+const defaultCards = [slide1, slide2, slide3, slide4, slide5].map((src, index) => ({
+  id: `carousel-card-${index + 1}`,
+  src,
+}))
 
 function FinaleCarousel() {
   const [cards, setCards] = useState(defaultCards)
@@ -16,19 +19,20 @@ function FinaleCarousel() {
   const [start, setStart] = useState(0)
   const [dragOffset, setDragOffset] = useState(0)
   const [paused, setPaused] = useState(false)
-  const [expandedCardIndex, setExpandedCardIndex] = useState(null)
+  const [expandedCardId, setExpandedCardId] = useState(null)
   const replaceInputRef = useRef(null)
-  const replacementCardIndexRef = useRef(null)
+  const replacementCardIdRef = useRef(null)
+  const expandedCard = cards.find((card) => card.id === expandedCardId) ?? null
 
   const move = (step) => {
     setDragOffset(0)
     setActive((index) => (index + step + cards.length) % cards.length)
   }
   useEffect(() => {
-    if (paused || expandedCardIndex !== null) return undefined
+    if (paused || expandedCard !== null) return undefined
     const timer = window.setTimeout(() => move(1), 3000)
     return () => window.clearTimeout(timer)
-  }, [active, cards.length, paused, expandedCardIndex])
+  }, [active, cards.length, paused, expandedCard])
   useEffect(() => {
     if (!cards.length) return
     const nearbyIndexes = [active, active - 1, active + 1]
@@ -36,7 +40,7 @@ function FinaleCarousel() {
     nearbyIndexes.forEach((index) => {
       const preload = new Image()
       preload.decoding = 'async'
-      preload.src = cards[index]
+      preload.src = cards[index].src
     })
   }, [active, cards])
   const cardPosition = (index) => {
@@ -55,35 +59,36 @@ function FinaleCarousel() {
       window.alert('图片请控制在 5MB 以内哦~')
       return
     }
-    const targetIndex = replacementCardIndexRef.current
-    if (targetIndex === null) return
+    const targetCardId = replacementCardIdRef.current
+    if (targetCardId === null) return
     const reader = new FileReader()
-    reader.onload = () => setCards((items) => items.map((item, index) => index === targetIndex ? String(reader.result) : item))
+    reader.onload = () => setCards((items) => items.map((item) => item.id === targetCardId ? { ...item, src: String(reader.result) } : item))
     reader.readAsDataURL(file)
   }
-  const openReplacementPicker = (index) => {
-    replacementCardIndexRef.current = index
+  const openReplacementPicker = (cardId) => {
+    replacementCardIdRef.current = cardId
     replaceInputRef.current?.click()
   }
+  const openLightbox = (cardId) => setExpandedCardId(cardId)
 
   return <section id="finale" className="finale bg-fade-rays-to-grid">
     <h2>Little moments, big love</h2>
     <p>把每一帧温柔，收进记忆里</p>
-    <button type="button" className="carousel-upload" onClick={() => openReplacementPicker(active)} aria-label="从图库替换当前轮播图片">
-      <span>＋</span> 换一张
+    <button type="button" className="carousel-upload" onClick={() => openLightbox(cards[active].id)} aria-label="查看当前轮播图片并确认替换">
+      <span>＋</span> 查看并替换
     </button>
     <input ref={replaceInputRef} className="carousel-upload-input" type="file" accept="image/*" onChange={replaceCurrentCard} />
     <div className="carousel" style={{ '--swipe-offset': `${dragOffset}px` }} onMouseEnter={() => setPaused(true)} onMouseLeave={() => { setDragOffset(0); setPaused(false) }} onTouchStart={(event) => { setPaused(true); setStart(event.touches[0].clientX) }} onTouchMove={(event) => setDragOffset(event.touches[0].clientX - start)} onTouchEnd={(event) => { const distance = start - event.changedTouches[0].clientX; if (Math.abs(distance) > 50) move(distance > 0 ? 1 : -1); else setDragOffset(0); setPaused(false) }} onTouchCancel={() => { setDragOffset(0); setPaused(false) }}>
-      {cards.map((src, index) => <button key={`${index}-${src.slice(-24)}`} className={`carousel-card ${cardPosition(index)}`} onClick={() => { if (index === active) setExpandedCardIndex(index) }} aria-label={index === active ? `放大查看轮播图片 ${index + 1}` : `轮播预览图片 ${index + 1}`}>
-        <img src={src} alt={`轮播图片 ${index + 1}`} loading={cardPosition(index) === 'hidden' ? 'lazy' : 'eager'} fetchPriority={cardPosition(index) === 'active' ? 'high' : 'low'} decoding="async" />
+      {cards.map((card, index) => <button key={card.id} className={`carousel-card ${cardPosition(index)}`} onClick={() => openLightbox(card.id)} aria-label={`放大查看轮播图片 ${index + 1}`}>
+        <img src={card.src} alt={`轮播图片 ${index + 1}`} loading={cardPosition(index) === 'hidden' ? 'lazy' : 'eager'} fetchPriority={cardPosition(index) === 'active' ? 'high' : 'low'} decoding="async" />
       </button>)}
     </div>
     <div className="carousel-nav"><button type="button" onClick={() => move(-1)} aria-label="上一张">←</button><span>{active + 1} / {cards.length}</span><button type="button" onClick={() => move(1)} aria-label="下一张">→</button></div>
-    {expandedCardIndex !== null && <div className="carousel-lightbox" role="dialog" aria-modal="true" aria-label="放大查看轮播图片" onClick={() => setExpandedCardIndex(null)}>
+    {expandedCard && <div className="carousel-lightbox" role="dialog" aria-modal="true" aria-label="放大查看轮播图片" onClick={() => setExpandedCardId(null)}>
       <div className="carousel-lightbox-panel" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="carousel-lightbox-close" onClick={() => setExpandedCardIndex(null)} aria-label="关闭放大图片">×</button>
-        <img src={cards[expandedCardIndex]} alt={`放大的轮播图片 ${expandedCardIndex + 1}`} />
-        <button type="button" className="carousel-lightbox-replace" onClick={() => openReplacementPicker(expandedCardIndex)}>替换图片</button>
+        <button type="button" className="carousel-lightbox-close" onClick={() => setExpandedCardId(null)} aria-label="关闭放大图片">×</button>
+        <img src={expandedCard.src} alt="当前准备替换的轮播图片" />
+        <button type="button" className="carousel-lightbox-replace" onClick={() => openReplacementPicker(expandedCard.id)}>替换图片</button>
       </div>
     </div>}
     <div className="goodbye"><img src={catA} alt="白灰猫挥手" /><div><strong>See you soon!</strong><span>愿每一次相遇都被温柔照亮</span></div><img src={catB} alt="虎斑猫陪伴" /></div>
