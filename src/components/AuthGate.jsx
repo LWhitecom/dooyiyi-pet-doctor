@@ -84,7 +84,7 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
     }
     if (!validPassword()) return
     if (!codeSent) throw new Error('请先获取邮件验证码。')
-    if (!/^\d{6}$/.test(code)) throw new Error('请输入 6 位验证码。')
+    if (!/^\d{8}$/.test(code)) throw new Error('请输入完整的 8 位验证码。')
     if (page === 'signup') await onVerifySignupCode(email, code, password)
     else await onResetPassword(email, code, password)
   })
@@ -97,7 +97,7 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
         <p className="auth-eyebrow">DooYiYi · private space</p>
         <h1>{content.title}</h1><p className="auth-subtitle">{content.subtitle}</p>
         <label className="auth-field"><span>✉</span><input value={email} onChange={(event) => setEmail(event.target.value.trim())} type="email" inputMode="email" placeholder="邮箱" autoComplete="email" disabled={busy} /></label>
-        {page !== 'login' && <label className="auth-field auth-code"><span>⌾</span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="验证码" disabled={busy} /><button type="button" onClick={sendCode} disabled={busy || (page === 'signup' && (!/^\S+@\S+\.\S+$/.test(email) || secondsLeft > 0))}>{busy ? '发送中…' : page === 'signup' && secondsLeft > 0 ? `${secondsLeft}s 后重试` : codeSent ? '重新获取' : '获取验证码'}</button></label>}
+        {page !== 'login' && <label className="auth-field auth-code"><span>⌾</span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))} maxLength={8} inputMode="numeric" autoComplete="one-time-code" placeholder="验证码" disabled={busy} /><button type="button" onClick={sendCode} disabled={busy || (page === 'signup' && (!/^\S+@\S+\.\S+$/.test(email) || secondsLeft > 0))}>{busy ? '发送中…' : page === 'signup' && secondsLeft > 0 ? `${secondsLeft}s 后重试` : codeSent ? '重新获取' : '获取验证码'}</button></label>}
         <label className="auth-field"><span>▣</span><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder={page === 'reset' ? '新密码' : '密码'} autoComplete={page === 'login' ? 'current-password' : 'new-password'} disabled={busy} /><button type="button" className="auth-eye" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword((value) => !value)}>◉</button></label>
         {page !== 'login' && <label className="auth-field"><span>▣</span><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder="确认密码" autoComplete="new-password" disabled={busy} /></label>}
         <button type="button" className="auth-submit" onClick={submit} disabled={busy}>{busy ? '请稍候…' : page === 'login' ? '登录并同步' : page === 'signup' ? '注册' : '重置密码'}</button>
