@@ -40,3 +40,4 @@
   max-width: 280px;
   line-height: 1.7;
 }
+.deferred-section-placeholder{min-height:inherit;background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,238,233,.1));}

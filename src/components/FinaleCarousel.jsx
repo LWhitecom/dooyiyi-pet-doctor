@@ -8,9 +8,11 @@ import catA from '../assets/images/cutout/单个抠图元素3.png'
 import catB from '../assets/images/cutout/单个抠图元素1.png'
 import '../styles/finale.css'
 
+const carouselPreviews = Object.values(import.meta.glob('../assets/previews/carousel/*.jpg', { eager: true, import: 'default', query: '?url' })).sort()
 const defaultCards = [slide1, slide2, slide3, slide4, slide5].map((src, index) => ({
   id: `carousel-card-${index + 1}`,
-  src,
+  src: carouselPreviews[index] || src,
+  fullSrc: src,
 }))
 
 function FinaleCarousel() {
@@ -62,7 +64,7 @@ function FinaleCarousel() {
     const targetCardId = replacementCardIdRef.current
     if (targetCardId === null) return
     const reader = new FileReader()
-    reader.onload = () => setCards((items) => items.map((item) => item.id === targetCardId ? { ...item, src: String(reader.result) } : item))
+    reader.onload = () => setCards((items) => items.map((item) => item.id === targetCardId ? { ...item, src: String(reader.result), fullSrc: String(reader.result) } : item))
     reader.readAsDataURL(file)
   }
   const openReplacementPicker = (cardId) => {
@@ -87,7 +89,7 @@ function FinaleCarousel() {
     {expandedCard && <div className="carousel-lightbox" role="dialog" aria-modal="true" aria-label="放大查看轮播图片" onClick={() => setExpandedCardId(null)}>
       <div className="carousel-lightbox-panel" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="carousel-lightbox-close" onClick={() => setExpandedCardId(null)} aria-label="关闭放大图片">×</button>
-        <img src={expandedCard.src} alt="当前准备替换的轮播图片" />
+        <img src={expandedCard.fullSrc || expandedCard.src} alt="当前准备替换的轮播图片" decoding="async" />
         <button type="button" className="carousel-lightbox-replace" onClick={() => openReplacementPicker(expandedCard.id)}>替换图片</button>
       </div>
     </div>}

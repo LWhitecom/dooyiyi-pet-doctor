@@ -10,7 +10,21 @@ const pageCopy = {
   reset: { title: '忘记密码', subtitle: '重新找回你的小世界', artwork: resetArtwork },
 }
 
-function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetCode, onResetPassword }) {
+const friendlyError = (error) => {
+  const message = String(error?.message || '')
+  if (/[\u4e00-\u9fff]/.test(message)) return message
+  if (/invalid login credentials/i.test(message)) return '邮箱或密码不正确，请重试。'
+  if (/user already registered/i.test(message)) return '该邮箱已注册，请直接登录或使用「忘记密码」。'
+  if (/email not confirmed/i.test(message)) return '该邮箱尚未完成验证，请先查收邮件。'
+  if (/token has expired|expired|otp expired/i.test(message)) return '验证码已过期，请重新获取。'
+  if (/token is invalid|invalid.*token|otp.*invalid/i.test(message)) return '验证码不正确，请检查后重试。'
+  if (/rate limit|too many requests/i.test(message)) return '发送过于频繁，请稍后再试。'
+  if (/signups not allowed|not enabled/i.test(message)) return '当前注册功能未开放，请联系管理员。'
+  if (/recovery.*expired|invalid.*recovery/i.test(message)) return '重置链接无效或已过期，请重新发送。'
+  return '操作失败，请稍后重试。'
+}
+
+function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetLink }) {
   const [page, setPage] = useState('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -38,8 +52,8 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
   }, [page, secondsLeft])
 
   const validPassword = () => {
-    if (password.length < 6) {
-      setMessage('密码至少需要 6 位。')
+    if (password.length < 8) {
+      setMessage('密码至少需要 8 位。')
       return false
     }
     if (password !== confirmPassword) {
@@ -55,7 +69,7 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
     try {
       await task()
     } catch (error) {
-      setMessage(error.message || '操作失败，请稍后重试。')
+      setMessage(friendlyError(error))
     } finally {
       setBusy(false)
     }
@@ -64,15 +78,10 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
   const sendCode = () => run(async () => {
     if (!email) throw new Error('请先填写邮箱。')
     if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('请输入正确的邮箱地址。')
-    if (page === 'signup') await onSendSignupCode(email)
-    else await onSendResetCode(email)
+    await onSendSignupCode(email)
     setCodeSent(true)
-    if (page === 'signup') {
-      setSecondsLeft(60)
-      setMessage('验证码已发送，请查收邮箱；60 秒后可重新获取。')
-    } else {
-      setMessage('验证码已发送，请查看邮箱。')
-    }
+    setSecondsLeft(60)
+    setMessage('验证码已发送，请查收邮箱；60 秒后可重新获取。')
   })
 
   const submit = () => run(async () => {
@@ -82,11 +91,16 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
       await onSignIn(email, password)
       return
     }
+    if (page === 'reset') {
+      if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('请输入正确的邮箱地址。')
+      await onSendResetLink(email)
+      setMessage('重置链接已发送，请打开邮件中的链接后设置新密码。')
+      return
+    }
     if (!validPassword()) return
     if (!codeSent) throw new Error('请先获取邮件验证码。')
-    if (!/^\d{8}$/.test(code)) throw new Error('请输入完整的 8 位验证码。')
-    if (page === 'signup') await onVerifySignupCode(email, code, password)
-    else await onResetPassword(email, code, password)
+    if (page === 'signup' && !/^\d{8}$/.test(code)) throw new Error('请输入 8 位验证码。')
+    await onVerifySignupCode(email, code, password)
   })
 
   return <main className="auth-gate" aria-label="账号登录">
@@ -97,10 +111,10 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetC
         <p className="auth-eyebrow">DooYiYi · private space</p>
         <h1>{content.title}</h1><p className="auth-subtitle">{content.subtitle}</p>
         <label className="auth-field"><span>✉</span><input value={email} onChange={(event) => setEmail(event.target.value.trim())} type="email" inputMode="email" placeholder="邮箱" autoComplete="email" disabled={busy} /></label>
-        {page !== 'login' && <label className="auth-field auth-code"><span>⌾</span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))} maxLength={8} inputMode="numeric" autoComplete="one-time-code" placeholder="验证码" disabled={busy} /><button type="button" onClick={sendCode} disabled={busy || (page === 'signup' && (!/^\S+@\S+\.\S+$/.test(email) || secondsLeft > 0))}>{busy ? '发送中…' : page === 'signup' && secondsLeft > 0 ? `${secondsLeft}s 后重试` : codeSent ? '重新获取' : '获取验证码'}</button></label>}
-        <label className="auth-field"><span>▣</span><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder={page === 'reset' ? '新密码' : '密码'} autoComplete={page === 'login' ? 'current-password' : 'new-password'} disabled={busy} /><button type="button" className="auth-eye" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword((value) => !value)}>◉</button></label>
-        {page !== 'login' && <label className="auth-field"><span>▣</span><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder="确认密码" autoComplete="new-password" disabled={busy} /></label>}
-        <button type="button" className="auth-submit" onClick={submit} disabled={busy}>{busy ? '请稍候…' : page === 'login' ? '登录并同步' : page === 'signup' ? '注册' : '重置密码'}</button>
+        {page === 'signup' && <label className="auth-field auth-code"><span>⌾</span><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))} maxLength={8} inputMode="numeric" autoComplete="one-time-code" placeholder="8 位验证码" disabled={busy} /><button type="button" onClick={sendCode} disabled={busy || !/^\S+@\S+\.\S+$/.test(email) || secondsLeft > 0}>{busy ? '发送中…' : secondsLeft > 0 ? `${secondsLeft}s 后重试` : codeSent ? '重新获取' : '获取验证码'}</button></label>}
+        {page !== 'reset' && <label className="auth-field"><span>▣</span><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder="密码" autoComplete={page === 'login' ? 'current-password' : 'new-password'} disabled={busy} /><button type="button" className="auth-eye" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword((value) => !value)}>◉</button></label>}
+        {page === 'signup' && <label className="auth-field"><span>▣</span><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type={showPassword ? 'text' : 'password'} placeholder="确认密码" autoComplete="new-password" disabled={busy} /></label>}
+        <button type="button" className="auth-submit" onClick={submit} disabled={busy}>{busy ? '请稍候…' : page === 'login' ? '登录并同步' : page === 'signup' ? '注册' : '发送重置链接'}</button>
         {message && <p className="auth-message" role="status">{message}</p>}
         <nav className="auth-links" aria-label="账号操作">{page === 'login' ? <><button type="button" onClick={() => changePage('reset')}>忘记密码？</button><button type="button" onClick={() => changePage('signup')}>注册账号</button></> : <button type="button" onClick={() => changePage('login')}>已有账号？返回登录</button>}</nav>
       </div>

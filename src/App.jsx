@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import LoadingScreen from './components/LoadingScreen.jsx'
 import AuthGate from './components/AuthGate.jsx'
 import Hero from './components/Hero.jsx'
 import AboutMe from './components/AboutMe.jsx'
-import Gallery from './components/Gallery.jsx'
-import FinaleCarousel from './components/FinaleCarousel.jsx'
 import PawProgress from './components/PawProgress.jsx'
 import { loadPhotoWall, savePhotoWall } from './utils/photoWallStorage.js'
 import { createDefaultWallPhotos } from './utils/wallAssets.js'
-import { getCurrentUser, loadCloudWall, migrateLocalWall, resetPasswordWithCode, saveCloudWall, sendResetCode, signInWithPassword, signOut, signUpWithEmail, subscribeToCloudWall, uploadCloudPhoto, verifySignupCode } from './utils/photoWallCloud.js'
+import { exchangeRecoverySession, getCurrentUser, loadCloudWall, migrateLocalWall, resetPasswordWithCode, saveCloudWall, sendResetCode, signInWithPassword, signOut, signUpWithEmail, subscribeToCloudWall, uploadCloudPhoto, verifySignupCode } from './utils/photoWallCloud.js'
+
+const Gallery = lazy(() => import('./components/Gallery.jsx'))
+const FinaleCarousel = lazy(() => import('./components/FinaleCarousel.jsx'))
 
 const AUTH_ACTIVITY_KEY = 'dooyiyi-auth-last-active'
 const AUTH_INACTIVITY_MS = 3 * 24 * 60 * 60 * 1000
@@ -39,6 +40,87 @@ const hasAuthSessionExpired = () => {
   return lastActivity !== null && Date.now() - lastActivity >= AUTH_INACTIVITY_MS
 }
 
+const hasRecoveryLink = () => {
+  const url = new URL(window.location.href)
+  return url.searchParams.has('code') || /(?:^|[&#])type=recovery(?:&|$)/.test(url.hash) || url.hash.includes('access_token=')
+}
+
+function DeferredSection({ children, minHeight }) {
+  const anchorRef = useRef(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const anchor = anchorRef.current
+    if (!anchor || !('IntersectionObserver' in window)) return setVisible(true)
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisible(true)
+        observer.disconnect()
+      }
+    }, { rootMargin: '500px 0px' })
+    observer.observe(anchor)
+    return () => observer.disconnect()
+  }, [])
+
+  return <div ref={anchorRef} style={{ minHeight }}>{visible && <Suspense fallback={<div className="deferred-section-placeholder" aria-hidden="true" />}>{children}</Suspense>}</div>
+}
+
+const friendlyAuthError = (error) => {
+  const message = String(error?.message || '')
+  if (/[\u4e00-\u9fff]/.test(message)) return message
+  if (/expired|invalid|recovery/i.test(message)) return '重置链接无效或已过期，请重新发送。'
+  return '设置新密码失败，请稍后重试。'
+}
+
+function ResetConfirm({ onComplete }) {
+  const [ready, setReady] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('正在确认重置链接…')
+
+  useEffect(() => {
+    let cancelled = false
+    exchangeRecoverySession().then(() => {
+      if (!cancelled) {
+        setReady(true)
+        setMessage('')
+      }
+    }).catch((error) => {
+      if (!cancelled) setMessage(friendlyAuthError(error))
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const submit = async () => {
+    if (password.length < 8) return setMessage('密码至少需要 8 位。')
+    if (password !== confirmPassword) return setMessage('两次输入的密码不一致。')
+    setBusy(true)
+    setMessage('')
+    try {
+      await onComplete(password)
+    } catch (error) {
+      setMessage(friendlyAuthError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <main className="auth-gate" aria-label="设置新密码">
+    <div className="auth-gate-grid" aria-hidden="true" />
+    <section className="auth-page auth-page--reset">
+      <div className="auth-form-card">
+        <p className="auth-eyebrow">DooYiYi · private space</p>
+        <h1>设置新密码</h1><p className="auth-subtitle">为你的小世界设置新的守护密码</p>
+        <label className="auth-field"><span>▣</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="新密码（至少 8 位）" autoComplete="new-password" disabled={busy || !ready} /></label>
+        <label className="auth-field"><span>▣</span><input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type="password" placeholder="确认新密码" autoComplete="new-password" disabled={busy || !ready} /></label>
+        <button type="button" className="auth-submit" onClick={submit} disabled={busy || !ready}>{busy ? '请稍候…' : '保存新密码'}</button>
+        {message && <p className="auth-message" role="status">{message}</p>}
+      </div>
+    </section>
+  </main>
+}
+
 // ════════════════════════════════════════════════════════
 //  App 主组件（批次①骨架版）
 //  - Loading 加载页（先显示，进度满后淡出）
@@ -55,9 +137,11 @@ function App() {
   const [syncStatus, setSyncStatus] = useState('local')
   const [localWallReady, setLocalWallReady] = useState(false)
   const [cloudWallReady, setCloudWallReady] = useState(false)
+  const [authMode, setAuthMode] = useState(() => hasRecoveryLink() ? 'reset-confirm' : 'default')
   const wallStorageReady = useRef(false)
   const cloudStorageReady = useRef(false)
   const skipCloudSave = useRef(false)
+  const lastCloudSnapshot = useRef('')
 
   useEffect(() => {
     let cancelled = false
@@ -207,17 +291,39 @@ function App() {
       skipCloudSave.current = false
       return
     }
+    if (wallPhotos.some((photo) => photo.pendingUpload)) return
+    const snapshot = JSON.stringify({
+      photos: wallPhotos.map(({ src, srcFull, pendingUpload, ...photo }) => photo),
+      stickers: wallStickers.map(({ src, ...sticker }) => sticker),
+    })
+    if (snapshot === lastCloudSnapshot.current) return
     const timer = setTimeout(() => {
       setSyncStatus('syncing')
-      saveCloudWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'))
-    }, 180)
+      saveCloudWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers }).then(() => {
+        lastCloudSnapshot.current = snapshot
+        setSyncStatus('synced')
+      }).catch(() => setSyncStatus('error'))
+    }, 650)
     return () => clearTimeout(timer)
   }, [syncUser, wallPhotos, wallStickers])
 
   const addCloudPhoto = async (file) => {
     if (!syncUser) throw new Error('请先登录“云同步”，再添加照片')
-    const photo = await uploadCloudPhoto(file, syncUser.id, { x: 8 + Math.random() * 62, y: 8 + Math.random() * 65, r: -6 + Math.random() * 12 })
-    setWallPhotos((items) => [...items, photo])
+    const layout = { x: 8 + Math.random() * 62, y: 8 + Math.random() * 65, r: -6 + Math.random() * 12 }
+    const temporaryId = `pending-${crypto.randomUUID()}`
+    const localUrl = URL.createObjectURL(file)
+    setWallPhotos((items) => [...items, { id: temporaryId, ...layout, src: localUrl, srcFull: localUrl, pendingUpload: true }])
+    setSyncStatus('syncing')
+    try {
+      const photo = await uploadCloudPhoto(file, syncUser.id, layout)
+      setWallPhotos((items) => items.map((item) => item.id === temporaryId ? photo : item))
+      URL.revokeObjectURL(localUrl)
+    } catch (error) {
+      setWallPhotos((items) => items.filter((item) => item.id !== temporaryId))
+      URL.revokeObjectURL(localUrl)
+      setSyncStatus('error')
+      throw error
+    }
   }
 
   const handleSignIn = async (email, password) => {
@@ -236,10 +342,12 @@ function App() {
     setSyncUser(await getCurrentUser())
   }
 
-  const handleResetPassword = async (email, code, password) => {
-    await resetPasswordWithCode(email, code, password)
+  const handleResetPassword = async (password) => {
+    await resetPasswordWithCode(password)
     recordAuthActivity()
     setSyncUser(await getCurrentUser())
+    setAuthMode('default')
+    window.history.replaceState({}, document.title, new URL(import.meta.env.BASE_URL, window.location.origin).toString())
   }
 
   const handleSignOut = async () => {
@@ -261,8 +369,12 @@ function App() {
     return <div className="auth-gate auth-gate--boot" aria-busy="true" />
   }
 
+  if (authMode === 'reset-confirm') {
+    return <ResetConfirm onComplete={handleResetPassword} />
+  }
+
   if (!syncUser) {
-    return <AuthGate onSignIn={handleSignIn} onSendSignupCode={handleSignUp} onVerifySignupCode={handleVerifySignup} onSendResetCode={sendResetCode} onResetPassword={handleResetPassword} />
+    return <AuthGate onSignIn={handleSignIn} onSendSignupCode={handleSignUp} onVerifySignupCode={handleVerifySignup} onSendResetLink={sendResetCode} />
   }
 
   return (
@@ -277,10 +389,8 @@ function App() {
         <PawProgress />
         <Hero />
         <AboutMe wallPhotos={wallPhotos} />
-        <Gallery photos={wallPhotos} onPhotosChange={setWallPhotos} stickers={wallStickers} onStickersChange={setWallStickers} onPhotoUpload={addCloudPhoto} syncUser={syncUser} syncStatus={syncStatus} onSignOut={handleSignOut} />
-
-
-        <FinaleCarousel />
+        <DeferredSection minHeight="650px"><Gallery photos={wallPhotos} onPhotosChange={setWallPhotos} stickers={wallStickers} onStickersChange={setWallStickers} onPhotoUpload={addCloudPhoto} syncUser={syncUser} syncStatus={syncStatus} onSignOut={handleSignOut} /></DeferredSection>
+        <DeferredSection minHeight="100svh"><FinaleCarousel /></DeferredSection>
       </main>
     </>
   )

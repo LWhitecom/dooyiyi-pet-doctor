@@ -7,7 +7,7 @@ const SIGNED_URL_CACHE_LIFETIME = 55 * 60 * 1000
 const signedUrlCache = new Map()
 
 const withoutRuntimeSrc = (item) => {
-  const { src, ...stored } = item
+  const { src, srcFull, pendingUpload, ...stored } = item
   return stored
 }
 
@@ -24,14 +24,16 @@ export async function signInWithPassword(email, password) {
 
 export async function signUpWithEmail(email) {
   const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-  const temporaryPassword = `DooYiYi-${Date.now()}-${Math.random().toString(36).slice(2)}Aa!`
-  const { data, error } = await supabase.auth.signUp({ email, password: temporaryPassword, options: { emailRedirectTo } })
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true, emailRedirectTo },
+  })
   if (error) throw error
   return data
 }
 
 export async function verifySignupCode(email, token, password) {
-  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
   if (error) throw error
   const { error: passwordError } = await supabase.auth.updateUser({ password })
   if (passwordError) throw passwordError
@@ -39,14 +41,27 @@ export async function verifySignupCode(email, token, password) {
 }
 
 export async function sendResetCode(email) {
-  const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: emailRedirectTo })
+  const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
   if (error) throw error
 }
 
-export async function resetPasswordWithCode(email, token, password) {
-  const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
-  if (verifyError) throw verifyError
+export async function exchangeRecoverySession() {
+  const url = new URL(window.location.href)
+  const code = url.searchParams.get('code')
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) throw error
+    return data
+  }
+
+  const { data, error } = await supabase.auth.getSession()
+  if (error) throw error
+  if (!data.session) throw new Error('重置链接无效或已过期，请重新发送。')
+  return data
+}
+
+export async function resetPasswordWithCode(password) {
   const { error } = await supabase.auth.updateUser({ password })
   if (error) throw error
 }
@@ -63,9 +78,8 @@ async function signedPhoto(photo) {
 
 async function signedPhotos(photos) {
   const now = Date.now()
-  const pathsToSign = photos
-    .filter((photo) => photo.storagePath && (!signedUrlCache.has(photo.storagePath) || signedUrlCache.get(photo.storagePath).expiresAt <= now))
-    .map((photo) => photo.storagePath)
+  const pathsToSign = [...new Set(photos.flatMap((photo) => [photo.storagePath, photo.storagePathFull]).filter(Boolean))]
+    .filter((path) => !signedUrlCache.has(path) || signedUrlCache.get(path).expiresAt <= now)
 
   if (pathsToSign.length) {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(pathsToSign, SIGNED_URL_TTL)
@@ -77,9 +91,9 @@ async function signedPhotos(photos) {
   }
 
   return photos.map((photo) => {
-    if (!photo.storagePath) return photo
-    const cached = signedUrlCache.get(photo.storagePath)
-    return cached ? { ...photo, src: cached.src } : photo
+    const preview = photo.storagePath && signedUrlCache.get(photo.storagePath)
+    const full = photo.storagePathFull && signedUrlCache.get(photo.storagePathFull)
+    return { ...photo, ...(preview ? { src: preview.src } : {}), ...(full ? { srcFull: full.src } : {}) }
   })
 }
 
@@ -109,27 +123,31 @@ export function subscribeToCloudWall(userId, onChange) {
   return () => { supabase.removeChannel(channel) }
 }
 
-async function compressImage(file) {
+async function createThumbnail(file) {
   const image = await createImageBitmap(file)
-  const maxSide = 1600
+  const maxSide = 800
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(image.width * scale))
   canvas.height = Math.max(1, Math.round(image.height * scale))
   canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height)
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', .82))
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', .72))
   image.close()
   if (!blob) throw new Error('图片压缩失败，请重新选择图片')
   return blob
 }
 
 export async function uploadCloudPhoto(file, userId, layout) {
-  const blob = await compressImage(file)
+  const thumbnail = await createThumbnail(file)
   const id = crypto.randomUUID()
-  const storagePath = `${userId}/${id}.webp`
-  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, blob, { contentType: 'image/webp', upsert: false })
-  if (error) throw error
-  const photo = { id, storagePath, ...layout }
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const storagePath = `${userId}/${id}.thumb.webp`
+  const storagePathFull = `${userId}/${id}.${extension}`
+  const { error: thumbnailError } = await supabase.storage.from(BUCKET).upload(storagePath, thumbnail, { contentType: 'image/webp', upsert: false })
+  if (thumbnailError) throw thumbnailError
+  const { error: fullError } = await supabase.storage.from(BUCKET).upload(storagePathFull, file, { contentType: file.type || 'image/jpeg', upsert: false })
+  if (fullError) throw fullError
+  const photo = { id, storagePath, storagePathFull, ...layout }
   return signedPhoto(photo)
 }
 

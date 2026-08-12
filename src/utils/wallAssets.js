@@ -4,6 +4,7 @@ import photo3 from '../assets/photos/本人照片3.jpg'
 import photo4 from '../assets/photos/本人照片4.jpg'
 
 const seedPhotos = { 'seed-0': photo1, 'seed-1': photo2, 'seed-2': photo3, 'seed-3': photo4 }
+const seedPhotoPreviews = import.meta.glob('../assets/previews/wall/*.jpg', { eager: true, import: 'default', query: '?url' })
 const stickerModules = import.meta.glob('../assets/stickers/*.{png,webp,svg}', { eager: true, import: 'default', query: '?url' })
 
 export const builtInStickers = Object.entries(stickerModules)
@@ -22,7 +23,13 @@ export function createDefaultWallPhotos() {
 
 export function resolvePhotoSrc(photo) {
   const assetId = photo.assetId || photo.id
-  return seedPhotos[assetId] || photo.src || ''
+  const preview = Object.entries(seedPhotoPreviews).find(([path]) => path.endsWith(`${assetId}.jpg`))?.[1]
+  return preview || photo.src || seedPhotos[assetId] || ''
+}
+
+export function resolvePhotoFullSrc(photo) {
+  const assetId = photo.assetId || photo.id
+  return photo.srcFull || seedPhotos[assetId] || photo.src || ''
 }
 
 export function resolveStickerSrc(sticker) {

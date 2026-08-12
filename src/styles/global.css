@@ -23,7 +23,7 @@ body {
   background-image:
     repeating-linear-gradient(0deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px),
     repeating-linear-gradient(90deg, transparent 0 31px, rgba(255, 228, 225, 0.28) 31px 32px);
-  background-attachment: fixed;
+  background-attachment: scroll;
 
   /* 移动端优先（文档§五）：375-430px 居中 */
   max-width: 430px;
