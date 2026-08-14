@@ -4,6 +4,7 @@ import { createDefaultWallPhotos, resolvePhotoSrc } from './wallAssets.js'
 const BUCKET = 'wall-media'
 const SIGNED_URL_TTL = 60 * 60
 const SIGNED_URL_CACHE_LIFETIME = 55 * 60 * 1000
+const AUTH_REQUEST_TIMEOUT_MS = 12 * 1000
 const signedUrlCache = new Map()
 
 const withoutRuntimeSrc = (item) => {
@@ -13,13 +14,22 @@ const withoutRuntimeSrc = (item) => {
 
 export async function getCurrentUser() {
   if (!supabase) return null
-  const { data } = await supabase.auth.getUser()
-  return data.user || null
+  // 只读本地 session，首次打开不因弱网认证请求卡在空白启动页。
+  const { data: sessionData } = await supabase.auth.getSession()
+  return sessionData.session?.user || null
 }
 
 export async function signInWithPassword(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const timeout = new Promise((_, reject) => {
+    window.setTimeout(() => reject(new Error('LOGIN_NETWORK_TIMEOUT')), AUTH_REQUEST_TIMEOUT_MS)
+  })
+  const { data, error } = await Promise.race([
+    supabase.auth.signInWithPassword({ email, password }),
+    timeout,
+  ])
   if (error) throw error
+  if (!data?.user) throw new Error('登录状态未创建，请重试。')
+  return data.user
 }
 
 export async function signUpWithEmail(email) {
@@ -98,17 +108,26 @@ async function signedPhotos(photos) {
 }
 
 export async function loadCloudWall(userId) {
-  const { data, error } = await supabase.from('photo_wall_states').select('photos, stickers').eq('user_id', userId).maybeSingle()
+  const { data, error } = await supabase.from('photo_wall_states').select('photos, stickers, profile_photo, finale_cards').eq('user_id', userId).maybeSingle()
   if (error) throw error
   if (!data) return null
-  return { photos: await signedPhotos(data.photos || []), stickers: data.stickers || [] }
+  const [profilePhoto] = await signedPhotos(data.profile_photo ? [data.profile_photo] : [])
+  const finaleCards = await signedPhotos(data.finale_cards || [])
+  return {
+    photos: await signedPhotos(data.photos || []),
+    stickers: data.stickers || [],
+    profilePhoto: profilePhoto || null,
+    finaleCards,
+  }
 }
 
-export async function saveCloudWall(userId, { photos, stickers }) {
+export async function saveCloudWall(userId, { photos, stickers, profilePhoto = null, finaleCards = [] }) {
   const { error } = await supabase.from('photo_wall_states').upsert({
     user_id: userId,
     photos: photos.map(withoutRuntimeSrc),
     stickers: stickers.map(withoutRuntimeSrc),
+    profile_photo: profilePhoto ? withoutRuntimeSrc(profilePhoto) : null,
+    finale_cards: finaleCards.map(withoutRuntimeSrc),
     updated_at: new Date().toISOString(),
   })
   if (error) throw error
@@ -149,6 +168,19 @@ export async function uploadCloudPhoto(file, userId, layout) {
   if (fullError) throw fullError
   const photo = { id, storagePath, storagePathFull, ...layout }
   return signedPhoto(photo)
+}
+
+export async function uploadCloudDisplayImage(file, userId, folder) {
+  const thumbnail = await createThumbnail(file)
+  const id = crypto.randomUUID()
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const storagePath = `${userId}/${folder}/${id}.thumb.webp`
+  const storagePathFull = `${userId}/${folder}/${id}.${extension}`
+  const { error: thumbnailError } = await supabase.storage.from(BUCKET).upload(storagePath, thumbnail, { contentType: 'image/webp', upsert: false })
+  if (thumbnailError) throw thumbnailError
+  const { error: fullError } = await supabase.storage.from(BUCKET).upload(storagePathFull, file, { contentType: file.type || 'image/jpeg', upsert: false })
+  if (fullError) throw fullError
+  return signedPhoto({ id, storagePath, storagePathFull })
 }
 
 export async function migrateLocalWall(userId, wall) {

@@ -1,6 +1,7 @@
 const DB_NAME = 'pet-doctor-site'
 const STORE_NAME = 'site-state'
 const WALL_KEY = 'photo-wall'
+const PERSONAL_MEMORY_KEY = 'personal-display-memory'
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -32,6 +33,36 @@ export async function savePhotoWall(photos) {
   const database = await openDatabase()
   return new Promise((resolve, reject) => {
     const request = database.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(photos, WALL_KEY)
+    request.onsuccess = () => {
+      database.close()
+      resolve()
+    }
+    request.onerror = () => {
+      database.close()
+      reject(request.error)
+    }
+  })
+}
+
+export async function loadPersonalDisplayMemory() {
+  const database = await openDatabase()
+  return new Promise((resolve, reject) => {
+    const request = database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(PERSONAL_MEMORY_KEY)
+    request.onsuccess = () => {
+      database.close()
+      resolve(request.result ?? null)
+    }
+    request.onerror = () => {
+      database.close()
+      reject(request.error)
+    }
+  })
+}
+
+export async function savePersonalDisplayMemory(memory) {
+  const database = await openDatabase()
+  return new Promise((resolve, reject) => {
+    const request = database.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(memory, PERSONAL_MEMORY_KEY)
     request.onsuccess = () => {
       database.close()
       resolve()

@@ -2,6 +2,8 @@ create table if not exists public.photo_wall_states (
   user_id uuid primary key references auth.users(id) on delete cascade,
   photos jsonb not null default '[]'::jsonb,
   stickers jsonb not null default '[]'::jsonb,
+  profile_photo jsonb,
+  finale_cards jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
 

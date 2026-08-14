@@ -16,6 +16,7 @@ const friendlyError = (error) => {
   if (/invalid login credentials/i.test(message)) return '邮箱或密码不正确，请重试。'
   if (/user already registered/i.test(message)) return '该邮箱已注册，请直接登录或使用「忘记密码」。'
   if (/email not confirmed/i.test(message)) return '该邮箱尚未完成验证，请先查收邮件。'
+  if (/LOGIN_NETWORK_TIMEOUT/i.test(message)) return '移动网络暂时没有连上登录服务，请检查网络后重新登录。'
   if (/token has expired|expired|otp expired/i.test(message)) return '验证码已过期，请重新获取。'
   if (/token is invalid|invalid.*token|otp.*invalid/i.test(message)) return '验证码不正确，请检查后重试。'
   if (/rate limit|too many requests/i.test(message)) return '发送过于频繁，请稍后再试。'
@@ -106,7 +107,7 @@ function AuthGate({ onSignIn, onSendSignupCode, onVerifySignupCode, onSendResetL
   return <main className="auth-gate" aria-label="账号登录">
     <div className="auth-gate-grid" aria-hidden="true" />
     <section className={`auth-page auth-page--${page}`} aria-live="polite">
-      <div className="auth-visual" aria-hidden="true"><img src={content.artwork} alt="" /></div>
+      <div className="auth-visual" aria-hidden="true"><img src={content.artwork} alt="" fetchPriority="high" decoding="async" /></div>
       <div className="auth-form-card">
         <p className="auth-eyebrow">DooYiYi · private space</p>
         <h1>{content.title}</h1><p className="auth-subtitle">{content.subtitle}</p>

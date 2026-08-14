@@ -7,10 +7,7 @@ import catDecorTwo from '../assets/images/cutout/单个抠图元素8.png'
 import '../styles/about.css'
 import { resolvePhotoSrc } from '../utils/wallAssets.js'
 
-const STORAGE_KEY = 'pet-doctor-about-photo'
-
-function AboutMe({ wallPhotos }) {
-  const [photo, setPhoto] = useState(aboutPhoto)
+function AboutMe({ wallPhotos, profilePhoto, onPhotoChange, onPhotoReset }) {
   const [pressing, setPressing] = useState(false)
   const [hint, setHint] = useState(false)
   const [carouselSlide, setCarouselSlide] = useState(0)
@@ -20,11 +17,6 @@ function AboutMe({ wallPhotos }) {
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const openedRef = useRef(false)
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) setPhoto(saved)
-  }, [])
 
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
@@ -93,7 +85,7 @@ function AboutMe({ wallPhotos }) {
     }, 500)
   }
 
-  const choosePhoto = (event) => {
+  const choosePhoto = async (event) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
@@ -102,14 +94,14 @@ function AboutMe({ wallPhotos }) {
       window.alert('图片请控制在 5MB 以内哦~')
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = String(reader.result)
-      setPhoto(result)
-      localStorage.setItem(STORAGE_KEY, result)
+    try {
+      await onPhotoChange(file)
+    } catch (error) {
+      window.alert(error.message || '图片保存失败，请稍后重试。')
     }
-    reader.readAsDataURL(file)
   }
+
+  const photo = profilePhoto?.src || aboutPhoto
 
   return (
     <section id="about" className="about-section bg-plaid-grid" aria-labelledby="about-title">
@@ -132,6 +124,7 @@ function AboutMe({ wallPhotos }) {
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click() }}
         >
           <img src={photo} alt="Leila 的个人照片" loading="lazy" decoding="async" />
+          {profilePhoto && <button type="button" className="about-photo-reset" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onPhotoReset() }}>恢复默认</button>}
           <span className="about-dot" />
           <svg className="about-photo-line" viewBox="0 0 32 24" fill="none"><path d="M2 20Q8 6 16 12Q24 18 30 4" /></svg>
           <p>Hi~ I&apos;m your<br />pet doctor 🐾</p>

@@ -4,15 +4,17 @@ import AuthGate from './components/AuthGate.jsx'
 import Hero from './components/Hero.jsx'
 import AboutMe from './components/AboutMe.jsx'
 import PawProgress from './components/PawProgress.jsx'
-import { loadPhotoWall, savePhotoWall } from './utils/photoWallStorage.js'
+import { loadPersonalDisplayMemory, loadPhotoWall, savePersonalDisplayMemory, savePhotoWall } from './utils/photoWallStorage.js'
 import { createDefaultWallPhotos } from './utils/wallAssets.js'
-import { exchangeRecoverySession, getCurrentUser, loadCloudWall, migrateLocalWall, resetPasswordWithCode, saveCloudWall, sendResetCode, signInWithPassword, signOut, signUpWithEmail, subscribeToCloudWall, uploadCloudPhoto, verifySignupCode } from './utils/photoWallCloud.js'
+import { exchangeRecoverySession, getCurrentUser, loadCloudWall, migrateLocalWall, resetPasswordWithCode, saveCloudWall, sendResetCode, signInWithPassword, signOut, signUpWithEmail, subscribeToCloudWall, uploadCloudDisplayImage, uploadCloudPhoto, verifySignupCode } from './utils/photoWallCloud.js'
 
 const Gallery = lazy(() => import('./components/Gallery.jsx'))
 const FinaleCarousel = lazy(() => import('./components/FinaleCarousel.jsx'))
 
 const AUTH_ACTIVITY_KEY = 'dooyiyi-auth-last-active'
 const AUTH_INACTIVITY_MS = 3 * 24 * 60 * 60 * 1000
+
+const withoutRuntimeDisplaySource = ({ src, srcFull, pendingUpload, ...stored }) => stored
 
 const getLastAuthActivity = () => {
   try {
@@ -132,13 +134,17 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [wallPhotos, setWallPhotos] = useState(createDefaultWallPhotos)
   const [wallStickers, setWallStickers] = useState([])
+  const [profilePhoto, setProfilePhoto] = useState(null)
+  const [finaleCards, setFinaleCards] = useState([])
   const [syncUser, setSyncUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('local')
   const [localWallReady, setLocalWallReady] = useState(false)
+  const [localPersonalMemoryReady, setLocalPersonalMemoryReady] = useState(false)
   const [cloudWallReady, setCloudWallReady] = useState(false)
   const [authMode, setAuthMode] = useState(() => hasRecoveryLink() ? 'reset-confirm' : 'default')
   const wallStorageReady = useRef(false)
+  const personalMemoryStorageReady = useRef(false)
   const cloudStorageReady = useRef(false)
   const skipCloudSave = useRef(false)
   const lastCloudSnapshot = useRef('')
@@ -163,6 +169,21 @@ function App() {
 
   useEffect(() => {
     let cancelled = false
+    loadPersonalDisplayMemory().then((savedMemory) => {
+      if (cancelled || !savedMemory) return
+      setProfilePhoto(savedMemory.profilePhoto || null)
+      setFinaleCards(Array.isArray(savedMemory.finaleCards) ? savedMemory.finaleCards : [])
+    }).catch(() => {}).finally(() => {
+      if (!cancelled) {
+        personalMemoryStorageReady.current = true
+        setLocalPersonalMemoryReady(true)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     getCurrentUser().then(async (user) => {
       if (cancelled) return
       if (user && hasAuthSessionExpired()) {
@@ -179,7 +200,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!syncUser || !localWallReady) return
+    if (!syncUser || !localWallReady || !localPersonalMemoryReady) return
     let cancelled = false
     setSyncStatus('syncing')
     loadCloudWall(syncUser.id).then(async (cloudWall) => {
@@ -187,12 +208,14 @@ function App() {
       if (cloudWall) {
         setWallPhotos(cloudWall.photos)
         setWallStickers(cloudWall.stickers)
+        setProfilePhoto(cloudWall.profilePhoto)
+        setFinaleCards(cloudWall.finaleCards)
       } else {
         const migrated = await migrateLocalWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers })
         if (cancelled) return
         setWallPhotos(migrated.photos)
         setWallStickers(migrated.stickers)
-        await saveCloudWall(syncUser.id, migrated)
+        await saveCloudWall(syncUser.id, { ...migrated, profilePhoto, finaleCards })
       }
       cloudStorageReady.current = true
       setCloudWallReady(true)
@@ -204,7 +227,7 @@ function App() {
       }
     })
     return () => { cancelled = true }
-  }, [syncUser, localWallReady])
+  }, [syncUser, localWallReady, localPersonalMemoryReady])
 
   useEffect(() => {
     if (!syncUser || !cloudWallReady) return undefined
@@ -214,6 +237,8 @@ function App() {
         skipCloudSave.current = true
         setWallPhotos(cloudWall.photos)
         setWallStickers(cloudWall.stickers)
+        setProfilePhoto(cloudWall.profilePhoto)
+        setFinaleCards(cloudWall.finaleCards)
         setSyncStatus('synced')
       }).catch(() => setSyncStatus('error'))
     })
@@ -262,6 +287,8 @@ function App() {
           skipCloudSave.current = true
           setWallPhotos(cloudWall.photos)
           setWallStickers(cloudWall.stickers)
+          setProfilePhoto(cloudWall.profilePhoto)
+          setFinaleCards(cloudWall.finaleCards)
           setSyncStatus('synced')
         }).catch(() => setSyncStatus('error'))
       }, 120)
@@ -286,26 +313,34 @@ function App() {
   }, [wallPhotos, wallStickers])
 
   useEffect(() => {
+    if (!personalMemoryStorageReady.current) return
+    if (profilePhoto?.pendingUpload || finaleCards.some((card) => card.pendingUpload)) return
+    savePersonalDisplayMemory({ profilePhoto, finaleCards }).catch(() => {})
+  }, [profilePhoto, finaleCards])
+
+  useEffect(() => {
     if (!syncUser || !cloudStorageReady.current) return
     if (skipCloudSave.current) {
       skipCloudSave.current = false
       return
     }
-    if (wallPhotos.some((photo) => photo.pendingUpload)) return
+    if (wallPhotos.some((photo) => photo.pendingUpload) || profilePhoto?.pendingUpload || finaleCards.some((card) => card.pendingUpload)) return
     const snapshot = JSON.stringify({
       photos: wallPhotos.map(({ src, srcFull, pendingUpload, ...photo }) => photo),
       stickers: wallStickers.map(({ src, ...sticker }) => sticker),
+      profilePhoto: profilePhoto ? withoutRuntimeDisplaySource(profilePhoto) : null,
+      finaleCards: finaleCards.map(withoutRuntimeDisplaySource),
     })
     if (snapshot === lastCloudSnapshot.current) return
     const timer = setTimeout(() => {
       setSyncStatus('syncing')
-      saveCloudWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers }).then(() => {
+      saveCloudWall(syncUser.id, { photos: wallPhotos, stickers: wallStickers, profilePhoto, finaleCards }).then(() => {
         lastCloudSnapshot.current = snapshot
         setSyncStatus('synced')
       }).catch(() => setSyncStatus('error'))
     }, 650)
     return () => clearTimeout(timer)
-  }, [syncUser, wallPhotos, wallStickers])
+  }, [syncUser, wallPhotos, wallStickers, profilePhoto, finaleCards])
 
   const addCloudPhoto = async (file) => {
     if (!syncUser) throw new Error('请先登录“云同步”，再添加照片')
@@ -326,10 +361,37 @@ function App() {
     }
   }
 
+  const saveDisplayImage = async (file, type, cardId = null) => {
+    if (!syncUser) throw new Error('请先登录“云同步”，再更换图片')
+    const localUrl = URL.createObjectURL(file)
+    const optimisticImage = { src: localUrl, srcFull: localUrl, pendingUpload: true }
+    const previousProfilePhoto = profilePhoto
+    const previousFinaleCards = finaleCards
+    if (type === 'profile') setProfilePhoto(optimisticImage)
+    else setFinaleCards((items) => [...items.filter((item) => item.cardId !== cardId), { ...optimisticImage, cardId }])
+    setSyncStatus('syncing')
+    try {
+      const uploadedImage = await uploadCloudDisplayImage(file, syncUser.id, type === 'profile' ? 'profile' : 'finale')
+      if (type === 'profile') setProfilePhoto(uploadedImage)
+      else setFinaleCards((items) => [...items.filter((item) => item.cardId !== cardId), { ...uploadedImage, cardId }])
+      URL.revokeObjectURL(localUrl)
+    } catch (error) {
+      if (type === 'profile') setProfilePhoto(previousProfilePhoto)
+      else setFinaleCards(previousFinaleCards)
+      URL.revokeObjectURL(localUrl)
+      setSyncStatus('error')
+      throw error
+    }
+  }
+
+  const resetProfilePhoto = () => setProfilePhoto(null)
+  const resetFinaleCard = (cardId) => setFinaleCards((items) => items.filter((item) => item.cardId !== cardId))
+
   const handleSignIn = async (email, password) => {
-    await signInWithPassword(email, password)
+    // 直接用登录返回的 user，不再二次调 getCurrentUser() 走网络（iOS 弱网会挂起/返回 null 导致卡死）
+    const user = await signInWithPassword(email, password)
     recordAuthActivity()
-    setSyncUser(await getCurrentUser())
+    setSyncUser(user)
   }
 
   const handleSignUp = async (email) => {
@@ -388,9 +450,9 @@ function App() {
       <main className="app-main">
         <PawProgress />
         <Hero />
-        <AboutMe wallPhotos={wallPhotos} />
+        <AboutMe wallPhotos={wallPhotos} profilePhoto={profilePhoto} onPhotoChange={(file) => saveDisplayImage(file, 'profile')} onPhotoReset={resetProfilePhoto} />
         <DeferredSection minHeight="650px"><Gallery photos={wallPhotos} onPhotosChange={setWallPhotos} stickers={wallStickers} onStickersChange={setWallStickers} onPhotoUpload={addCloudPhoto} syncUser={syncUser} syncStatus={syncStatus} onSignOut={handleSignOut} /></DeferredSection>
-        <DeferredSection minHeight="100svh"><FinaleCarousel /></DeferredSection>
+        <DeferredSection minHeight="100svh"><FinaleCarousel cardOverrides={finaleCards} onCardChange={(file, cardId) => saveDisplayImage(file, 'finale', cardId)} onCardReset={resetFinaleCard} /></DeferredSection>
       </main>
     </>
   )

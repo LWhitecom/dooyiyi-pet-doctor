@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import slide1 from '../assets/images/cutout/轮播图1.png'
 import slide2 from '../assets/images/cutout/轮播图2.png'
 import slide3 from '../assets/images/cutout/轮播图3.png'
@@ -15,8 +15,11 @@ const defaultCards = [slide1, slide2, slide3, slide4, slide5].map((src, index) =
   fullSrc: src,
 }))
 
-function FinaleCarousel() {
-  const [cards, setCards] = useState(defaultCards)
+function FinaleCarousel({ cardOverrides, onCardChange, onCardReset }) {
+  const cards = useMemo(() => defaultCards.map((card) => {
+    const override = cardOverrides.find((item) => item.cardId === card.id)
+    return override ? { ...card, src: override.src || card.src, fullSrc: override.srcFull || override.src || card.fullSrc, hasOverride: true } : card
+  }), [cardOverrides])
   const [active, setActive] = useState(0)
   const [start, setStart] = useState(0)
   const [dragOffset, setDragOffset] = useState(0)
@@ -52,7 +55,7 @@ function FinaleCarousel() {
     if (forward === cards.length - 1) return 'previous'
     return 'hidden'
   }
-  const replaceCurrentCard = (event) => {
+  const replaceCurrentCard = async (event) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
@@ -63,9 +66,11 @@ function FinaleCarousel() {
     }
     const targetCardId = replacementCardIdRef.current
     if (targetCardId === null) return
-    const reader = new FileReader()
-    reader.onload = () => setCards((items) => items.map((item) => item.id === targetCardId ? { ...item, src: String(reader.result), fullSrc: String(reader.result) } : item))
-    reader.readAsDataURL(file)
+    try {
+      await onCardChange(file, targetCardId)
+    } catch (error) {
+      window.alert(error.message || '图片保存失败，请稍后重试。')
+    }
   }
   const openReplacementPicker = (cardId) => {
     replacementCardIdRef.current = cardId
@@ -91,6 +96,7 @@ function FinaleCarousel() {
         <button type="button" className="carousel-lightbox-close" onClick={() => setExpandedCardId(null)} aria-label="关闭放大图片">×</button>
         <img src={expandedCard.fullSrc || expandedCard.src} alt="当前准备替换的轮播图片" decoding="async" />
         <button type="button" className="carousel-lightbox-replace" onClick={() => openReplacementPicker(expandedCard.id)}>替换图片</button>
+        {expandedCard.hasOverride && <button type="button" className="carousel-lightbox-reset" onClick={() => { onCardReset(expandedCard.id); setExpandedCardId(null) }}>恢复默认图片</button>}
       </div>
     </div>}
     <div className="goodbye"><img src={catA} alt="白灰猫挥手" /><div><strong>See you soon!</strong><span>愿每一次相遇都被温柔照亮</span></div><img src={catB} alt="虎斑猫陪伴" /></div>
