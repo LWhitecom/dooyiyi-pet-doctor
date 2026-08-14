@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import '../styles/gallery.css'
+import '../styles/gallery-feedback.css'
 import CloudSyncPanel from './CloudSyncPanel.jsx'
 import { builtInStickers, resolvePhotoFullSrc, resolvePhotoSrc, resolveStickerSrc } from '../utils/wallAssets.js'
 
 const POSITION_STORAGE_KEY = 'pet-doctor-wall-positions'
 const DRAG_THRESHOLD = 10
 const WALL_PADDING = 4
-function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUpload, syncUser, syncStatus, onSignOut }) {
+function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUpload, onPhotoMediaRefresh, syncUser, syncStatus, onSignOut }) {
   const [active, setActive] = useState(null)
   const [drag, setDrag] = useState(null)
   const [trashActive, setTrashActive] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [failedPreviews, setFailedPreviews] = useState(() => new Set())
+  const [fullImageFailed, setFullImageFailed] = useState(false)
+  const retryCount = useRef(new Map())
   const input = useRef()
   const wallRef = useRef(null)
   const trashRef = useRef(null)
@@ -117,11 +121,39 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUp
     gestureRef.current = null
   }
 
+  const refreshPhoto = async (id, kind = 'preview') => {
+    const key = `${kind}:${id}`
+    const attempts = retryCount.current.get(key) || 0
+    if (attempts >= 2) {
+      if (kind === 'preview') setFailedPreviews((items) => new Set(items).add(id))
+      else setFullImageFailed(true)
+      return
+    }
+    retryCount.current.set(key, attempts + 1)
+    try {
+      await onPhotoMediaRefresh?.(id)
+      if (kind === 'preview') setFailedPreviews((items) => {
+        const next = new Set(items)
+        next.delete(id)
+        return next
+      })
+      else setFullImageFailed(false)
+    } catch {
+      if (kind === 'preview') setFailedPreviews((items) => new Set(items).add(id))
+      else setFullImageFailed(true)
+    }
+  }
+
   const openPhoto = (id) => {
     if (justDraggedRef.current) {
       justDraggedRef.current = false
       return
     }
+    if (failedPreviews.has(id)) {
+      refreshPhoto(id)
+      return
+    }
+    setFullImageFailed(false)
     setActive(id)
   }
 
@@ -139,7 +171,7 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUp
     <div className={`gallery-wall ${drag ? 'is-dragging' : ''}`} ref={wallRef}>
       {photos.map((photo, index) => {
         const isDragging = drag?.id === photo.id
-        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" /><img src={resolvePhotoSrc(photo)} alt={`照片 ${index + 1}`} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.alt = '图片加载失败' }} /><em>2026 · memory</em></button>
+        return <button className={`wall-photo ${isDragging ? 'dragging' : ''}`} key={photo.id} onPointerDown={(event) => startPointer(event, photo, 'photo')} onPointerMove={movePointer} onPointerUp={endPointer} onPointerCancel={endPointer} onClick={() => openPhoto(photo.id)} style={{ left: `${photo.x}%`, top: `${photo.y}%`, '--rotation': `${photo.r}deg`, '--drag-x': `${isDragging ? drag.offsetX : 0}px`, '--drag-y': `${isDragging ? drag.offsetY : 0}px` }}><span className="pin" />{failedPreviews.has(photo.id) ? <span className="wall-photo-fallback">轻点重新加载</span> : <img src={resolvePhotoSrc(photo)} alt={`照片 ${index + 1}`} loading="lazy" decoding="async" onLoad={() => retryCount.current.delete(`preview:${photo.id}`)} onError={() => refreshPhoto(photo.id)} />}<em>2026 · memory</em></button>
       })}
       {stickers.map((sticker) => {
         const isDragging = drag?.id === sticker.id
@@ -147,7 +179,7 @@ function Gallery({ photos, onPhotosChange, stickers, onStickersChange, onPhotoUp
       })}
     </div>
     {drag?.kind === 'sticker' && <div ref={trashRef} className={`sticker-trash ${trashActive ? 'is-active' : ''}`} role="status" aria-label="将贴纸拖到这里删除"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8m-6 0V2h4v2m-9 3h14m-12 0 1 13h8l1-13M10 10v7m4-7v7" /></svg><span>拖到这里删除</span></div>}
-    {active && <div className="lightbox" onClick={() => setActive(null)}><button className="close" onClick={() => setActive(null)}>×</button><span>{current + 1}/{photos.length}</span><img src={resolvePhotoFullSrc(photos[current])} alt="大图预览" decoding="async" onClick={(event) => event.stopPropagation()} /><div><button disabled={current === 0} onClick={(event) => { event.stopPropagation(); setActive(photos[current - 1].id) }}>←</button><button className="delete" onClick={(event) => { event.stopPropagation(); remove() }}>删除</button><button disabled={current === photos.length - 1} onClick={(event) => { event.stopPropagation(); setActive(photos[current + 1].id) }}>→</button></div></div>}
+    {active && <div className="lightbox" onClick={() => setActive(null)}><button className="close" onClick={() => setActive(null)}>×</button><span>{current + 1}/{photos.length}</span>{fullImageFailed ? <button className="lightbox-retry" onClick={(event) => { event.stopPropagation(); refreshPhoto(active, 'full') }}>大图暂未加载，轻点重试</button> : <img src={resolvePhotoFullSrc(photos[current])} alt="大图预览" decoding="async" onLoad={() => retryCount.current.delete(`full:${active}`)} onError={() => refreshPhoto(active, 'full')} onClick={(event) => event.stopPropagation()} />}<div><button disabled={current === 0} onClick={(event) => { event.stopPropagation(); setFullImageFailed(false); setActive(photos[current - 1].id) }}>←</button><button className="delete" onClick={(event) => { event.stopPropagation(); remove() }}>删除</button><button disabled={current === photos.length - 1} onClick={(event) => { event.stopPropagation(); setFullImageFailed(false); setActive(photos[current + 1].id) }}>→</button></div></div>}
   </section>
 }
 

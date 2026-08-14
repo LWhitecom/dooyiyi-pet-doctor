@@ -7,7 +7,7 @@ import catDecorTwo from '../assets/images/cutout/单个抠图元素8.png'
 import '../styles/about.css'
 import { resolvePhotoSrc } from '../utils/wallAssets.js'
 
-function AboutMe({ wallPhotos, profilePhoto, onPhotoChange, onPhotoReset }) {
+function AboutMe({ wallPhotos, profilePhoto, onPhotoChange, onPhotoReset, onPhotoMediaRefresh }) {
   const [pressing, setPressing] = useState(false)
   const [hint, setHint] = useState(false)
   const [carouselSlide, setCarouselSlide] = useState(0)
@@ -17,6 +17,7 @@ function AboutMe({ wallPhotos, profilePhoto, onPhotoChange, onPhotoReset }) {
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const openedRef = useRef(false)
+  const profileRetryCount = useRef(0)
 
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
@@ -123,7 +124,7 @@ function AboutMe({ wallPhotos, profilePhoto, onPhotoChange, onPhotoReset }) {
           aria-label="长按 500 毫秒更换照片"
           onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click() }}
         >
-          <img src={photo} alt="Leila 的个人照片" loading="lazy" decoding="async" />
+          <img src={photo} alt="Leila 的个人照片" loading="lazy" decoding="async" onLoad={() => { profileRetryCount.current = 0 }} onError={() => { if (profilePhoto && profileRetryCount.current < 2) { profileRetryCount.current += 1; onPhotoMediaRefresh?.() } }} />
           {profilePhoto && <button type="button" className="about-photo-reset" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onPhotoReset() }}>恢复默认</button>}
           <span className="about-dot" />
           <svg className="about-photo-line" viewBox="0 0 32 24" fill="none"><path d="M2 20Q8 6 16 12Q24 18 30 4" /></svg>

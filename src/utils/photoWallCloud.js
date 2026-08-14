@@ -81,15 +81,15 @@ export async function signOut() {
   if (error) throw error
 }
 
-async function signedPhoto(photo) {
-  const [signed] = await signedPhotos([photo])
+async function signedPhoto(photo, forceRefresh = false) {
+  const [signed] = await signedPhotos([photo], forceRefresh)
   return signed
 }
 
-async function signedPhotos(photos) {
+async function signedPhotos(photos, forceRefresh = false) {
   const now = Date.now()
   const pathsToSign = [...new Set(photos.flatMap((photo) => [photo.storagePath, photo.storagePathFull]).filter(Boolean))]
-    .filter((path) => !signedUrlCache.has(path) || signedUrlCache.get(path).expiresAt <= now)
+    .filter((path) => forceRefresh || !signedUrlCache.has(path) || signedUrlCache.get(path).expiresAt <= now)
 
   if (pathsToSign.length) {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(pathsToSign, SIGNED_URL_TTL)
@@ -108,7 +108,7 @@ async function signedPhotos(photos) {
 }
 
 export async function loadCloudWall(userId) {
-  const { data, error } = await supabase.from('photo_wall_states').select('photos, stickers, profile_photo, finale_cards').eq('user_id', userId).maybeSingle()
+  const { data, error } = await supabase.from('photo_wall_states').select('photos, stickers, profile_photo, finale_cards, updated_at').eq('user_id', userId).maybeSingle()
   if (error) throw error
   if (!data) return null
   const [profilePhoto] = await signedPhotos(data.profile_photo ? [data.profile_photo] : [])
@@ -118,7 +118,13 @@ export async function loadCloudWall(userId) {
     stickers: data.stickers || [],
     profilePhoto: profilePhoto || null,
     finaleCards,
+    updatedAt: data.updated_at || null,
   }
+}
+
+export async function refreshCloudMedia(item) {
+  if (!item?.storagePath && !item?.storagePathFull) return item
+  return signedPhoto(item, true)
 }
 
 export async function saveCloudWall(userId, { photos, stickers, profilePhoto = null, finaleCards = [] }) {
@@ -143,7 +149,20 @@ export function subscribeToCloudWall(userId, onChange) {
 }
 
 async function createThumbnail(file) {
-  const image = await createImageBitmap(file)
+  let image
+  let revokeSource = null
+  if (typeof createImageBitmap === 'function') {
+    image = await createImageBitmap(file)
+  } else {
+    const source = URL.createObjectURL(file)
+    revokeSource = () => URL.revokeObjectURL(source)
+    image = await new Promise((resolve, reject) => {
+      const element = new Image()
+      element.onload = () => resolve(element)
+      element.onerror = () => reject(new Error('图片读取失败，请重新选择图片'))
+      element.src = source
+    })
+  }
   const maxSide = 800
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
   const canvas = document.createElement('canvas')
@@ -151,7 +170,8 @@ async function createThumbnail(file) {
   canvas.height = Math.max(1, Math.round(image.height * scale))
   canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height)
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', .72))
-  image.close()
+  image.close?.()
+  revokeSource?.()
   if (!blob) throw new Error('图片压缩失败，请重新选择图片')
   return blob
 }

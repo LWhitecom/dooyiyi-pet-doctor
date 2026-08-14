@@ -15,7 +15,7 @@ const defaultCards = [slide1, slide2, slide3, slide4, slide5].map((src, index) =
   fullSrc: src,
 }))
 
-function FinaleCarousel({ cardOverrides, onCardChange, onCardReset }) {
+function FinaleCarousel({ cardOverrides, onCardChange, onCardReset, onCardMediaRefresh }) {
   const cards = useMemo(() => defaultCards.map((card) => {
     const override = cardOverrides.find((item) => item.cardId === card.id)
     return override ? { ...card, src: override.src || card.src, fullSrc: override.srcFull || override.src || card.fullSrc, hasOverride: true } : card
@@ -27,6 +27,8 @@ function FinaleCarousel({ cardOverrides, onCardChange, onCardReset }) {
   const [expandedCardId, setExpandedCardId] = useState(null)
   const replaceInputRef = useRef(null)
   const replacementCardIdRef = useRef(null)
+  const retryCount = useRef(new Map())
+  const [lightboxImageFailed, setLightboxImageFailed] = useState(false)
   const expandedCard = cards.find((card) => card.id === expandedCardId) ?? null
 
   const move = (step) => {
@@ -76,7 +78,25 @@ function FinaleCarousel({ cardOverrides, onCardChange, onCardReset }) {
     replacementCardIdRef.current = cardId
     replaceInputRef.current?.click()
   }
-  const openLightbox = (cardId) => setExpandedCardId(cardId)
+  const refreshCard = async (cardId, kind = 'preview') => {
+    const key = `${kind}:${cardId}`
+    const attempts = retryCount.current.get(key) || 0
+    if (attempts >= 2) {
+      if (kind === 'lightbox') setLightboxImageFailed(true)
+      return
+    }
+    retryCount.current.set(key, attempts + 1)
+    try {
+      await onCardMediaRefresh?.(cardId)
+      if (kind === 'lightbox') setLightboxImageFailed(false)
+    } catch {
+      if (kind === 'lightbox') setLightboxImageFailed(true)
+    }
+  }
+  const openLightbox = (cardId) => {
+    setLightboxImageFailed(false)
+    setExpandedCardId(cardId)
+  }
 
   return <section id="finale" className="finale bg-fade-rays-to-grid">
     <h2>Little moments, big love</h2>
@@ -87,14 +107,14 @@ function FinaleCarousel({ cardOverrides, onCardChange, onCardReset }) {
     <input ref={replaceInputRef} className="carousel-upload-input" type="file" accept="image/*" onChange={replaceCurrentCard} />
     <div className="carousel" style={{ '--swipe-offset': `${dragOffset}px` }} onMouseEnter={() => setPaused(true)} onMouseLeave={() => { setDragOffset(0); setPaused(false) }} onTouchStart={(event) => { setPaused(true); setStart(event.touches[0].clientX) }} onTouchMove={(event) => setDragOffset(event.touches[0].clientX - start)} onTouchEnd={(event) => { const distance = start - event.changedTouches[0].clientX; if (Math.abs(distance) > 50) move(distance > 0 ? 1 : -1); else setDragOffset(0); setPaused(false) }} onTouchCancel={() => { setDragOffset(0); setPaused(false) }}>
       {cards.map((card, index) => <button key={card.id} className={`carousel-card ${cardPosition(index)}`} onClick={() => openLightbox(card.id)} aria-label={`放大查看轮播图片 ${index + 1}`}>
-        <img src={card.src} alt={`轮播图片 ${index + 1}`} loading={cardPosition(index) === 'hidden' ? 'lazy' : 'eager'} fetchPriority={cardPosition(index) === 'active' ? 'high' : 'low'} decoding="async" />
+        <img src={card.src} alt={`轮播图片 ${index + 1}`} loading={cardPosition(index) === 'hidden' ? 'lazy' : 'eager'} fetchPriority={cardPosition(index) === 'active' ? 'high' : 'low'} decoding="async" onLoad={() => retryCount.current.delete(`preview:${card.id}`)} onError={() => refreshCard(card.id)} />
       </button>)}
     </div>
     <div className="carousel-nav"><button type="button" onClick={() => move(-1)} aria-label="上一张">←</button><span>{active + 1} / {cards.length}</span><button type="button" onClick={() => move(1)} aria-label="下一张">→</button></div>
     {expandedCard && <div className="carousel-lightbox" role="dialog" aria-modal="true" aria-label="放大查看轮播图片" onClick={() => setExpandedCardId(null)}>
       <div className="carousel-lightbox-panel" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="carousel-lightbox-close" onClick={() => setExpandedCardId(null)} aria-label="关闭放大图片">×</button>
-        <img src={expandedCard.fullSrc || expandedCard.src} alt="当前准备替换的轮播图片" decoding="async" />
+        {lightboxImageFailed ? <button type="button" className="carousel-lightbox-retry" onClick={() => refreshCard(expandedCard.id, 'lightbox')}>原图暂未加载，轻点重试</button> : <img src={expandedCard.fullSrc || expandedCard.src} alt="当前准备替换的轮播图片" decoding="async" onLoad={() => retryCount.current.delete(`lightbox:${expandedCard.id}`)} onError={() => refreshCard(expandedCard.id, 'lightbox')} />}
         <button type="button" className="carousel-lightbox-replace" onClick={() => openReplacementPicker(expandedCard.id)}>替换图片</button>
         {expandedCard.hasOverride && <button type="button" className="carousel-lightbox-reset" onClick={() => { onCardReset(expandedCard.id); setExpandedCardId(null) }}>恢复默认图片</button>}
       </div>
