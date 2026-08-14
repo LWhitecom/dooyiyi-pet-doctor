@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import loadingIllustration from '../assets/images/cutout/抠图素材图8.png'
+import loadingIllustration from '../assets/previews/loading/illustration.webp'
 import '../styles/loading.css'
 
 // ════════════════════════════════════════════════════════

@@ -8,7 +8,7 @@ import catA from '../assets/images/cutout/单个抠图元素3.png'
 import catB from '../assets/images/cutout/单个抠图元素1.png'
 import '../styles/finale.css'
 
-const carouselPreviews = Object.values(import.meta.glob('../assets/previews/carousel/*.jpg', { eager: true, import: 'default', query: '?url' })).sort()
+const carouselPreviews = Object.values(import.meta.glob('../assets/previews/carousel/*.{jpg,webp}', { eager: true, import: 'default', query: '?url' })).sort()
 const defaultCards = [slide1, slide2, slide3, slide4, slide5].map((src, index) => ({
   id: `carousel-card-${index + 1}`,
   src: carouselPreviews[index] || src,

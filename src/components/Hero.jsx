@@ -1,8 +1,8 @@
 import { useRef } from 'react'
-import heroPhoto from '../assets/images/cutout/首页替换照片1.png'
-import qCharacter from '../assets/images/cutout/抠图素材图3.png'
-import catA from '../assets/images/cutout/单个抠图元素3.png'
-import catB from '../assets/images/cutout/单个抠图元素1.png'
+import heroPhoto from '../assets/previews/hero/main-photo.webp'
+import qCharacter from '../assets/previews/hero/q-character.webp'
+import catA from '../assets/previews/hero/cat-a.webp'
+import catB from '../assets/previews/hero/cat-b.webp'
 import '../styles/hero.css'
 
 function scrollToSection(id) {

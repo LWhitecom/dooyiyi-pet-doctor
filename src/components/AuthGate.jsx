@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import loginArtwork from '../assets/images/cutout/登录界面.png'
-import signupArtwork from '../assets/images/cutout/注册页面.png'
-import resetArtwork from '../assets/images/cutout/忘记密码界面.png'
+import loginArtwork from '../assets/previews/auth/login.webp'
+import signupArtwork from '../assets/previews/auth/signup.webp'
+import resetArtwork from '../assets/previews/auth/reset.webp'
 import '../styles/auth-gate.css'
 
 const pageCopy = {

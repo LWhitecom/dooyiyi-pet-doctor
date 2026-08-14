@@ -6,16 +6,18 @@
   "description": "宠物医生个人展示网站 · 治愈系 Kawaii · 手机端优先",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/stage-worker.mjs",
+    "build": "node scripts/generate-previews.mjs && vite build && node scripts/stage-worker.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "vconsole": "^3.15.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "sharp": "^0.35.3",
     "vite": "^5.4.0"
   }
 }
